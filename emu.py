@@ -1,3 +1,13 @@
+from enum import Enum
+
+class Flag(Enum):
+    Z = 0x01  # Zero flag (bit 0)
+    S = 0x02  # Sign flag (bit 1)
+    O = 0x04  # Odd parity flag (bit 2)
+    V = 0x08  # Overflow flag (bit 3)
+    C = 0x10  # Carry flag (bit 4)
+
+
 class Processor:
     def __init__(self):
         # Two banks of 4 general-purpose registers: R0, R1, R2, R3
@@ -21,8 +31,42 @@ class Processor:
         # You could expand this with real code later on
         self.rom_loaded = False
 
+    def set_flag(self, flag: Flag, value: bool):
+        """Set or clear a flag in the Flags register."""
+        if value:
+            self.registers['F'] |= flag.value  # Set the flag
+        else:
+            self.registers['F'] &= ~flag.value  # Clear the flag
+
+    def check_flags(self, result, operand=None, operation=None):
+        """Check and set the appropriate flags based on the result."""
+        # Z (Zero) Flag: Set if result is zero
+        self.set_flag(Flag.Z, result == 0)
+
+        # S (Sign) Flag: Set if the most significant bit is set (sign bit for signed numbers)
+        self.set_flag(Flag.S, (result & 0x80) != 0)
+
+        # O (Odd Parity) Flag: Set if the number of 1's in the result is odd
+        self.set_flag(Flag.O, bin(result).count('1') % 2 == 1)
+
+        # C (Carry) Flag: Set if there was a carry/borrow in the operation
+        if operation in ['ADDI', 'SUBI'] and operand is not None:
+            if operation == 'ADDI':
+                carry_out = result > 0xFF  # Carry occurs if result is greater than 8 bits
+            elif operation == 'SUBI':
+                carry_out = result < 0     # Borrow occurs if result is negative
+            self.set_flag(Flag.C, carry_out)
+
+        if operation == 'ADDI' and operand is not None:
+            # V (Overflow) Flag: Set for signed overflow in addition
+            result_sign = (result & 0x80) != 0
+            operand_sign = (operand & 0x80) != 0
+            self.set_flag(Flag.V, result_sign != operand_sign)
+
+
     def reset(self):
         """Reset all registers and memory."""
+        print("Reset all registers and memory.")
         self.current_bank = 0
         self.register_banks = {
             0: {'R0': 0, 'R1': 0, 'R2': 0, 'R3': 0},
@@ -37,23 +81,56 @@ class Processor:
             self.load_rom([0x01, 0x03, 0xFF, 0x00])
             self.rom_loaded = True
 
+    def _map_regnum_to_key(sel,reg):
+        return f"R{reg}"
+
+    def set_reg(self, reg, _8bitvalue):
+        self.register_banks[self.current_bank][self._map_regnum_to_key(reg)] = _8bitvalue
+
+    def get_reg(self, reg):
+        return self.register_banks[self.current_bank][self._map_regnum_to_key(reg)]
+        
     def load_rom(self, data):
+        print("load rom", data)
         """Load ROM data (up to 32KB) into the ROM area."""
         self.memory[:len(data)] = data[:32 * 1024]
+        self.rom_loaded = True
 
+    def inc_pc(self):
+        self.registers['PC'] += 1  # Increment PC to point to the next instruction
+        
     def fetch(self):
         """Fetch the next opcode from memory (ROM or RAM)."""
         pc = self.registers['PC']
         opcode = self.memory[pc]
-        self.registers['PC'] += 1  # Increment PC to point to the next instruction
+        self.inc_pc()
         return opcode
+
+    def operand_8bit(self):
+        pc = self.registers['PC']
+        operand = self.memory[pc]
+        self.inc_pc()
+        return operand
+
+    def operand_16bit(self):
+        pc = self.registers['PC']
+        high = self.memory[pc]
+        self.inc_pc()
+        low = self.memory[pc+1]
+        self.inc_pc()
+        return high * 256 + low
 
     def switch_bank(self):
         """Flip between the two banks of registers (EXX opcode)."""
         self.current_bank = 1 - self.current_bank  # Toggle between bank 0 and bank 1
         print(f"Switched to register bank {self.current_bank}")
 
+    def flag_str(self):
+        flag = self.registers['F']
+        return f"Z:{flag & Flag.Z.value} S:{flag & Flag.S.value} O:{flag & Flag.O.value} V:{flag & Flag.V.value} C:{flag & Flag.C.value}"
 
+    def reg_dump(self):
+        return str(self.register_banks) + "\n" + self.flag_str()
 
 
 opcode_map = {} # A dictionary to store the mapping of opcodes to functions
@@ -123,7 +200,29 @@ def handle_movwi(proc, opcode, mnemonic):
 @opcode_handler(0x58, 0x5b, mnemonic="ANDI")
 @opcode_handler(0x5c, 0x5f, mnemonic="ORI")
 def handle_1reg_18bit(proc, opcode, mnemonic):
-    pass
+    reg_src = (opcode & 3)
+    operand = proc.operand_8bit()
+    operation = (opcode>>2) - 16 
+    print(f"{mnemonic} r{reg_src}, {operand} (group {operation})\n")
+    if (operation == 0):
+        proc.set_reg(reg_src, operand)
+    elif (operation == 1):
+        result = proc.get_reg(reg_src) ^ operand
+        #proc.check_flags(result)
+        proc.set_reg(reg_src, result)
+
+    elif (operation == 4):
+        result = (proc.get_reg(reg_src) + operand)
+        #proc.check_flags(result)
+        proc.set_reg(reg_src, result & 0xff)
+    elif (operation == 5):
+        proc.set_reg(reg_src, (proc.get_reg(reg_src) - operand) & 0xff)
+    elif (operation == 6):
+        proc.set_reg(reg_src, (proc.get_reg(reg_src) & operand))
+    elif (operation == 7):
+        proc.set_reg(reg_src, (proc.get_reg(reg_src) | operand))
+    else:
+        print("DO NOT KNOW HOW TO HANDLE")
 
 @opcode_handler(0x60, 0x63, mnemonic="DJNZ")
 def handle_dnjz(proc, opcode, mnemonic):
@@ -175,7 +274,10 @@ def handle_2reg_operations(proc, opcode, mnemonic):
 
 @opcode_handler(0xff, mnemonic="HLT")
 def handle_halt(proc, opcode, mnemonic):
-    pass
+    print(proc.reg_dump())
+    while True:
+        pass
+
 
 # Simulator core: dispatch based on opcode
 def execute_opcode(proc, opcode):
@@ -200,7 +302,38 @@ def disassemble_opcode(opcode):
 cpu = Processor()
 
 # Example program: [MOVI R1,0xa, MOV R0, R1; INC R1; EXX; MOVI R1, 0x2; MOV R0, R1; INC R1; EXX]
-#program = [0x41, 0xa, 0x03, 0x01, 0x02, 0x03, 0x01, 0x00]  # Opcodes to be executed
+program = [
+0x40, 0x10,
+0x41, 0x11,
+0x42, 0x12,
+0x43, 0x13,
+
+0x44, 0x10,
+0x45, 0x11,
+0x46, 0x12,
+0x47, 0x13,
+
+0x50, 0x10,
+0x51, 0x11,
+0x52, 0x12,
+0x53, 0x13,
+
+0x54, 0x10,
+0x55, 0x11,
+0x56, 0x12,
+0x57, 0x13,
+
+0x58, 0x10,
+0x59, 0x11,
+0x5a, 0x12,
+0x5b, 0x13,
+
+0x5c, 0x10,
+0x5d, 0x11,
+0x5e, 0x12,
+0x5f, 0x13,
+
+0xff]  # Opcodes to be executed
 cpu.load_rom(program)
 
 # Simulate execution of the program
