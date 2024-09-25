@@ -7,6 +7,12 @@ class Flag(Enum):
     V = 0x08  # Overflow flag (bit 3)
     C = 0x10  # Carry flag (bit 4)
 
+class Operation(Enum):
+    ADD = 0
+    SUB = 1
+    LOGICAL = 2
+    SHIFT_RIGHT = 3
+    SHIFT_LEFT = 4
 
 class Processor:
     def __init__(self):
@@ -38,7 +44,7 @@ class Processor:
         else:
             self.registers['F'] &= ~flag.value  # Clear the flag
 
-    def check_flags(self, result, operand=None, operation=None):
+    def check_flags(self, result, operand=None, operation:Operation=None):
         """Check and set the appropriate flags based on the result."""
         # Z (Zero) Flag: Set if result is zero
         self.set_flag(Flag.Z, result == 0)
@@ -50,14 +56,14 @@ class Processor:
         self.set_flag(Flag.O, bin(result).count('1') % 2 == 1)
 
         # C (Carry) Flag: Set if there was a carry/borrow in the operation
-        if operation in ['ADDI', 'SUBI'] and operand is not None:
-            if operation == 'ADDI':
+        if operation in [Operation.ADD, Operation.SUB] and operand is not None:
+            if operation == Operation.ADD:
                 carry_out = result > 0xFF  # Carry occurs if result is greater than 8 bits
-            elif operation == 'SUBI':
+            elif operation == Operation.SUB:
                 carry_out = result < 0     # Borrow occurs if result is negative
             self.set_flag(Flag.C, carry_out)
 
-        if operation == 'ADDI' and operand is not None:
+        if operation == Operation.ADD and operand is not None:
             # V (Overflow) Flag: Set for signed overflow in addition
             result_sign = (result & 0x80) != 0
             operand_sign = (operand & 0x80) != 0
@@ -84,6 +90,12 @@ class Processor:
     def _map_regnum_to_key(sel,reg):
         return f"R{reg}"
 
+    def set_pc(self, _16bitvalue):
+        self.registers['PC'] = _16bitvalue
+
+    def set_sp(self, _16bitvalue):
+        self.registers['SP'] = _16bitvalue
+
     def set_reg(self, reg, _8bitvalue):
         self.register_banks[self.current_bank][self._map_regnum_to_key(reg)] = _8bitvalue
 
@@ -98,7 +110,17 @@ class Processor:
 
     def inc_pc(self):
         self.registers['PC'] += 1  # Increment PC to point to the next instruction
-        
+        self.registers['PC'] &= 0xffff
+
+    def inc_sp(self):
+        self.registers['SP'] += 1
+        self.registers['SP'] &= 0xffff
+
+
+    def dec_sp(self):
+        self.registers['SP'] -= 1  
+        self.registers['SP'] &= 0xffff
+
     def fetch(self):
         """Fetch the next opcode from memory (ROM or RAM)."""
         pc = self.registers['PC']
@@ -116,9 +138,9 @@ class Processor:
         pc = self.registers['PC']
         high = self.memory[pc]
         self.inc_pc()
-        low = self.memory[pc+1]
+        low = self.memory[(pc+1) & 0xffff]
         self.inc_pc()
-        return high * 256 + low
+        return high, low
 
     def switch_bank(self):
         """Flip between the two banks of registers (EXX opcode)."""
@@ -130,7 +152,7 @@ class Processor:
         return f"Z:{flag & Flag.Z.value} S:{flag & Flag.S.value} O:{flag & Flag.O.value} V:{flag & Flag.V.value} C:{flag & Flag.C.value}"
 
     def reg_dump(self):
-        return str(self.register_banks) + "\n" + self.flag_str()
+        return str(self.register_banks) + "\n" + "PC: "+hex(self.registers['PC']) + " SP: "+ hex(self.registers['SP']) + " Flags:" + self.flag_str()
 
 
 opcode_map = {} # A dictionary to store the mapping of opcodes to functions
@@ -162,12 +184,26 @@ def opcode_handler(start, end=None, mnemonic=None):
 def handle_single(proc, opcode, mnemonic):
     pass
 
+# Undocumented OPCODE 'DUMP'
+@opcode_handler(0x04, mnemonic="DUMP") 
+def handle_dump(proc, opcode, mnemonic):
+    print(proc.reg_dump())
+    
 
 @opcode_handler(0x14, 0x17, mnemonic="LD") 
 @opcode_handler(0x18, 0x1b, mnemonic="ST")
 @opcode_handler(0x1c, mnemonic="MOVWI SP")
 def handle_load_store(proc, opcode, mnemonic):
-    pass
+    high_operand, low_operand = proc.operand_16bit()
+    print(f"{mnemonic}, {hex(high_operand * 256 + low_operand)}")
+    if (opcode == 0x1c):
+        pass
+    elif (opcode > 0x17):
+        # STore
+        pass
+    else:
+        # LoadD
+        pass
 
 @opcode_handler(0x1d,mnemonic="INC SP")
 @opcode_handler(0x1e,mnemonic="DEC SP")
@@ -185,12 +221,16 @@ def handle_pop_reg(proc, opcode, mnemonic):
 
 @opcode_handler(0x25, mnemonic="EXX")
 def handle_exx(proc, opcode, mnemonic):
-    pass
+    proc.switch_bank()
 
 @opcode_handler(0x28, mnemonic="MOVWI R0")
 @opcode_handler(0x2a, mnemonic="MOVWI R2")
 def handle_movwi(proc, opcode, mnemonic):
-    pass
+    reg_src = ((opcode>>1) & 3)
+    high_operand, low_operand = proc.operand_16bit()
+    print(f"**************handle_movwi****************** {mnemonic}, {hex(high_operand * 256 + low_operand)}")
+    proc.set_reg(reg_src, high_operand)
+    proc.set_reg(reg_src + 1, low_operand)
 
 
 @opcode_handler(0x40, 0x43, mnemonic="MOVI")
@@ -204,23 +244,37 @@ def handle_1reg_18bit(proc, opcode, mnemonic):
     operand = proc.operand_8bit()
     operation = (opcode>>2) - 16 
     print(f"{mnemonic} r{reg_src}, {operand} (group {operation})\n")
+
+
     if (operation == 0):
+        #MOVI rx,_8bit
         proc.set_reg(reg_src, operand)
+
     elif (operation == 1):
+        #XORI rx,_8bit
         result = proc.get_reg(reg_src) ^ operand
-        #proc.check_flags(result)
+        proc.check_flags(result)
         proc.set_reg(reg_src, result)
 
     elif (operation == 4):
         result = (proc.get_reg(reg_src) + operand)
-        #proc.check_flags(result)
+        proc.check_flags(result, operation = Operation.ADD)
         proc.set_reg(reg_src, result & 0xff)
+
     elif (operation == 5):
-        proc.set_reg(reg_src, (proc.get_reg(reg_src) - operand) & 0xff)
+        result = proc.get_reg(reg_src) - operand
+        proc.check_flags(result, operation = Operation.SUB)
+        proc.set_reg(reg_src,  result & 0xff)
+
     elif (operation == 6):
-        proc.set_reg(reg_src, (proc.get_reg(reg_src) & operand))
+        result = (proc.get_reg(reg_src) & operand)
+        proc.check_flags(result, operation = Operation.SUB)
+        proc.set_reg(reg_src, result)
+
     elif (operation == 7):
-        proc.set_reg(reg_src, (proc.get_reg(reg_src) | operand))
+        result = proc.get_reg(reg_src) | operand
+        proc.check_flags(result)
+        proc.set_reg(reg_src, result)
     else:
         print("DO NOT KNOW HOW TO HANDLE")
 
@@ -235,6 +289,9 @@ def handle_cond_jump(proc, opcode, mnemonic):
 @opcode_handler(0x6c, mnemonic="JMP")  # Condition Jump
 def handle_uncond_jump(proc, opcode, mnemonic):
     print("Handle JMP")
+    high_operand, low_operand = proc.operand_16bit()
+
+    proc.set_pc(high_operand * 256 + low_operand)
 
 @opcode_handler(0x6e, mnemonic="CALL")  # Condition Jump
 def handle_call(proc, opcode, mnemonic):
@@ -256,6 +313,7 @@ def handle_shift(proc, opcode, mnemonic):
 @opcode_handler(0x8c, 0x8f, mnemonic="DEC")
 def handle_1reg_operation(proc, opcode, mnemonic):
     reg_src = (opcode & 3)
+
     
 
 @opcode_handler(0x90, 0x9f, mnemonic="ADD")
@@ -303,6 +361,8 @@ cpu = Processor()
 
 # Example program: [MOVI R1,0xa, MOV R0, R1; INC R1; EXX; MOVI R1, 0x2; MOV R0, R1; INC R1; EXX]
 program = [
+0x28, 0x80,0xFA,
+0xff,
 0x40, 0x10,
 0x41, 0x11,
 0x42, 0x12,
@@ -332,6 +392,10 @@ program = [
 0x5d, 0x11,
 0x5e, 0x12,
 0x5f, 0x13,
+
+0x25,   #EXX
+0x40, 0x12, # MOVI R0,18
+0x58, 0x02, # ADDI R0,2
 
 0xff]  # Opcodes to be executed
 cpu.load_rom(program)
