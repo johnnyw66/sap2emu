@@ -17,10 +17,10 @@ class Operation(Enum):
 class Processor:
     def __init__(self):
         # Two banks of 4 general-purpose registers: R0, R1, R2, R3
-        self.register_banks = {
-            0: {'R0': 0, 'R1': 0, 'R2': 0, 'R3': 0},  # Bank 0
-            1: {'R0': 0, 'R1': 0, 'R2': 0, 'R3': 0}   # Bank 1
-        }
+        self.register_banks = [
+            {'R0': 0, 'R1': 0, 'R2': 0, 'R3': 0},  # Bank 0
+            {'R0': 0, 'R1': 0, 'R2': 0, 'R3': 0}   # Bank 1
+        ]
         self.current_bank = 0  # Start with bank 0
 
         # Special registers
@@ -74,10 +74,10 @@ class Processor:
         """Reset all registers and memory."""
         print("Reset all registers and memory.")
         self.current_bank = 0
-        self.register_banks = {
-            0: {'R0': 0, 'R1': 0, 'R2': 0, 'R3': 0},
-            1: {'R0': 0, 'R1': 0, 'R2': 0, 'R3': 0}
-        }
+        self.register_banks = [
+            {'R0': 0, 'R1': 0, 'R2': 0, 'R3': 0},
+            {'R0': 0, 'R1': 0, 'R2': 0, 'R3': 0}
+        ]
         self.registers['PC'] = 0
         self.registers['SP'] = 0x7FFF
         self.registers['F'] = 0
@@ -152,7 +152,9 @@ class Processor:
         return f"Z:{flag & Flag.Z.value} S:{flag & Flag.S.value} O:{flag & Flag.O.value} V:{flag & Flag.V.value} C:{flag & Flag.C.value}"
 
     def reg_dump(self):
-        return str(self.register_banks) + "\n" + "PC: "+hex(self.registers['PC']) + " SP: "+ hex(self.registers['SP']) + " Flags:" + self.flag_str()
+        regdump = '\n'.join([ ', '.join(f"{reg}: 0x{bank[reg]:02X}" for reg in bank) for bank in self.register_banks])
+        return regdump + "\n" + f"PC: 0x{self.registers['PC']:04X} SP: 0x{self.registers['SP']:04X}\nFlags: {self.flag_str()}"
+
 
 
 opcode_map = {} # A dictionary to store the mapping of opcodes to functions
@@ -362,6 +364,8 @@ cpu = Processor()
 # Example program: [MOVI R1,0xa, MOV R0, R1; INC R1; EXX; MOVI R1, 0x2; MOV R0, R1; INC R1; EXX]
 program = [
 0x28, 0x80,0xFA,
+0x25,
+0x28, 0xfa,0x80,
 0xff,
 0x40, 0x10,
 0x41, 0x11,
