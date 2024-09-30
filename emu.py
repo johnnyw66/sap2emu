@@ -44,6 +44,9 @@ class Processor:
         else:
             self.registers['F'] &= ~flag.value  # Clear the flag
 
+    def get_flag(self, flag):
+        return (self.registers['F'] & flag.value != 0)
+
     def check_flags(self, result, operand=None, operation:Operation=None):
         """Check and set the appropriate flags based on the result."""
         # Z (Zero) Flag: Set if result is zero
@@ -147,9 +150,12 @@ class Processor:
         self.current_bank = 1 - self.current_bank  # Toggle between bank 0 and bank 1
         print(f"Switched to register bank {self.current_bank}")
 
+    def _flag_check(self, flg):
+        return 0 if self.registers['F'] & flg.value == 0 else 1
+
     def flag_str(self):
         flag = self.registers['F']
-        return f"Z:{flag & Flag.Z.value} S:{flag & Flag.S.value} O:{flag & Flag.O.value} V:{flag & Flag.V.value} C:{flag & Flag.C.value}"
+        return f"Z:{self._flag_check(Flag.Z)} S:{self._flag_check(Flag.S)} O:{self._flag_check(Flag.O)} V:{self._flag_check(Flag.V)} C:{self._flag_check(Flag.C)}"
 
     def reg_dump(self):
         regdump = '\n'.join([ ', '.join(f"{reg}: 0x{bank[reg]:02X}" for reg in bank) for bank in self.register_banks])
@@ -184,7 +190,12 @@ def opcode_handler(start, end=None, mnemonic=None):
 @opcode_handler(0x01, mnemonic="CLC")
 @opcode_handler(0x02, mnemonic="SETC")
 def handle_single(proc, opcode, mnemonic):
-    pass
+    if (opcode == 0x00):
+        pass
+    elif (opcode == 0x01):
+        proc.set_flag(Flag.C, False)
+    elif (opcode == 0x02):
+        proc.set_flag(Flag.C, True)
 
 # Undocumented OPCODE 'DUMP'
 @opcode_handler(0x04, mnemonic="DUMP") 
@@ -210,7 +221,10 @@ def handle_load_store(proc, opcode, mnemonic):
 @opcode_handler(0x1d,mnemonic="INC SP")
 @opcode_handler(0x1e,mnemonic="DEC SP")
 def handle_single_stack(proc, opcode, mnemonic):
-    pass
+    if (opcode == 0x1d):
+        proc.inc_sp()
+    elif (opcode == 0x1e):
+        proc.dec_sp()
 
 
 @opcode_handler(0x1f,0x20, mnemonic="PUSH")
@@ -286,22 +300,54 @@ def handle_dnjz(proc, opcode, mnemonic):
 
 @opcode_handler(0x64, 0x6B, mnemonic="JP")  # Condition Jump
 def handle_cond_jump(proc, opcode, mnemonic):
-    print("Handle conditional JP")
+    print(f"Handle conditional JP 0x0{opcode:02X}")
+    high_operand, low_operand = proc.operand_16bit()
+    if (opcode == 0x64):
+        flag_check = Flag.Z
+        cond = True
+    elif (opcode == 0x65):
+        flag_check = Flag.Z
+        cond = False
+    elif (opcode == 0x66):
+        flag_check = Flag.C
+        cond = True
+    elif (opcode == 0x67):
+        flag_check = Flag.C
+        cond = False
+    elif (opcode == 0x68):
+        flag_check = Flag.S
+        cond = True
+    elif (opcode == 0x69):
+        flag_check = Flag.S
+        cond = False
+    elif (opcode == 0x6A):
+        flag_check = Flag.O
+        cond = True
+    elif (opcode == 0x6B):
+        flag_check = Flag.O
+        cond = False
+
+    if (proc.get_flag(flag_check) == cond):
+        proc.set_pc(high_operand * 256 + low_operand)
 
 @opcode_handler(0x6c, mnemonic="JMP")  # Condition Jump
 def handle_uncond_jump(proc, opcode, mnemonic):
     print("Handle JMP")
-    high_operand, low_operand = proc.operand_16bit()
 
+    high_operand, low_operand = proc.operand_16bit()
     proc.set_pc(high_operand * 256 + low_operand)
 
 @opcode_handler(0x6e, mnemonic="CALL")  # Condition Jump
 def handle_call(proc, opcode, mnemonic):
     print("Handle CALL")
-
+    high_operand, low_operand = proc.operand_16bit()
+    # TODO push PC onto Stack
+    proc.set_pc(high_operand * 256 + low_operand)
+    
 @opcode_handler(0x6f, mnemonic="RET")  # Condition Jump
 def handle_ret(proc, opcode, mnemonic):
     print("Handle RET")
+    # TODO pop PC 
 
 
 @opcode_handler(0x80,0x83, mnemonic="SHR" )
@@ -363,6 +409,14 @@ cpu = Processor()
 
 # Example program: [MOVI R1,0xa, MOV R0, R1; INC R1; EXX; MOVI R1, 0x2; MOV R0, R1; INC R1; EXX]
 program = [
+0x02,
+0x04,
+0x66,0x00,0x00,
+0xFF,
+
+0x04,
+0x01,
+0xff,
 0x28, 0x80,0xFA,
 0x25,
 0x28, 0xfa,0x80,
