@@ -125,6 +125,7 @@ class Processor:
     def add_reg_value(self, reg, _8bitvalue):
         current_reg_value = self.register_banks[self.current_bank][self._map_regnum_to_key(reg)]
         new_value = current_reg_value + _8bitvalue
+        new_value &= 0xff
         self.register_banks[self.current_bank][self._map_regnum_to_key(reg)] = new_value
         print("TODO - WRAP 8bit add/sub ")
         return new_value
@@ -320,14 +321,16 @@ def handle_1reg_18bit(proc, opcode, mnemonic):
 @opcode_handler(0x60, 0x63, mnemonic="DJNZ")
 def handle_dnjz(proc, opcode, mnemonic):
     reg_src = opcode & 3
-    result = proc.add_reg_value(reg_src, -1)
     high_operand, low_operand = proc.operand_16bit()
     _16bit_address = high_operand * 256 + low_operand
+
+    print(f"DJNZ R{reg_src}, 0x{_16bit_address:04X}")
+
+    result = proc.add_reg_value(reg_src, -1)
     proc.check_flags(result, operation = Operation.SUB)
     if (proc.get_flag(Flag.Z) == False):
         proc.set_pc(_16bit_address)
 
-    print("DJNZ")
 
 @opcode_handler(0x64, 0x6B, mnemonic="JP")  # Condition Jump
 def handle_cond_jump(proc, opcode, mnemonic):
@@ -440,6 +443,10 @@ cpu = Processor()
 
 # Example program: [MOVI R1,0xa, MOV R0, R1; INC R1; EXX; MOVI R1, 0x2; MOV R0, R1; INC R1; EXX]
 program = [
+0x40,0x00,
+0x04,
+0x60,0x00,0x01,
+0xFF,
 0x17,0x00,0x08,
 0x02,
 0x04,
