@@ -73,6 +73,7 @@ class Processor:
             self.set_flag(Flag.V, result_sign != operand_sign)
 
 
+        
     def reset(self):
         """Reset all registers and memory."""
         print("Reset all registers and memory.")
@@ -93,6 +94,16 @@ class Processor:
     def _map_regnum_to_key(sel,reg):
         return f"R{reg}"
 
+    def store_reg_at_address(self, reg_src, _16bitaddr):
+        reg_val = get_reg(self, reg)
+        # TODO Check and ignore if trying to store in the ROM - 
+        self.memory[_16bitaddr]  = reg_val
+
+
+    def load_reg_from_address(self, reg_src, _16bitaddr):
+        reg_val = self.memory[_16bitaddr]
+        self.set_reg(reg_src, reg_val)
+
     def set_pc(self, _16bitvalue):
         self.registers['PC'] = _16bitvalue
 
@@ -111,6 +122,14 @@ class Processor:
         self.memory[:len(data)] = data[:32 * 1024]
         self.rom_loaded = True
 
+    def add_reg_value(self, reg, _8bitvalue):
+        current_reg_value = self.register_banks[self.current_bank][self._map_regnum_to_key(reg)]
+        new_value = current_reg_value + _8bitvalue
+        self.register_banks[self.current_bank][self._map_regnum_to_key(reg)] = new_value
+        print("TODO - WRAP 8bit add/sub ")
+        return new_value
+
+        
     def inc_pc(self):
         self.registers['PC'] += 1  # Increment PC to point to the next instruction
         self.registers['PC'] &= 0xffff
@@ -208,15 +227,19 @@ def handle_dump(proc, opcode, mnemonic):
 @opcode_handler(0x1c, mnemonic="MOVWI SP")
 def handle_load_store(proc, opcode, mnemonic):
     high_operand, low_operand = proc.operand_16bit()
-    print(f"{mnemonic}, {hex(high_operand * 256 + low_operand)}")
+    _16bitvalue = high_operand * 256 + low_operand
+
+    print(f"{mnemonic}, {hex(_16bitvalue)}")
     if (opcode == 0x1c):
-        pass
+        proc.set_sp(_16bitvalue)
     elif (opcode > 0x17):
-        # STore
-        pass
+        reg_src = (opcode & 3)
+        # STore contents of Reg reg_src into the memory location at address
+        proc.store_reg_at_address(reg_src, _16bitvalue)
     else:
-        # LoadD
-        pass
+        #LD into reg - contents @ _16bitvalue address
+        reg_src = (opcode & 3)
+        proc.load_reg_from_address(reg_src, _16bitvalue)
 
 @opcode_handler(0x1d,mnemonic="INC SP")
 @opcode_handler(0x1e,mnemonic="DEC SP")
@@ -296,7 +319,15 @@ def handle_1reg_18bit(proc, opcode, mnemonic):
 
 @opcode_handler(0x60, 0x63, mnemonic="DJNZ")
 def handle_dnjz(proc, opcode, mnemonic):
-    pass
+    reg_src = opcode & 3
+    result = proc.add_reg_value(reg_src, -1)
+    high_operand, low_operand = proc.operand_16bit()
+    _16bit_address = high_operand * 256 + low_operand
+    proc.check_flags(result, operation = Operation.SUB)
+    if (proc.get_flag(Flag.Z) == False):
+        proc.set_pc(_16bit_address)
+
+    print("DJNZ")
 
 @opcode_handler(0x64, 0x6B, mnemonic="JP")  # Condition Jump
 def handle_cond_jump(proc, opcode, mnemonic):
@@ -409,6 +440,7 @@ cpu = Processor()
 
 # Example program: [MOVI R1,0xa, MOV R0, R1; INC R1; EXX; MOVI R1, 0x2; MOV R0, R1; INC R1; EXX]
 program = [
+0x17,0x00,0x08,
 0x02,
 0x04,
 0x66,0x00,0x00,
