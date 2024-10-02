@@ -476,19 +476,33 @@ def handle_1reg_operation(proc, opcode, mnemonic):
 
     
 
-@opcode_handler(0x90, 0x9f, mnemonic="ADD")
-@opcode_handler(0xa0, 0xbf, mnemonic="ADD")
-@opcode_handler(0xb0, 0xaf, mnemonic="SUB")
+@opcode_handler(0x90, 0x9f, mnemonic="MOV")
+@opcode_handler(0xa0, 0xaf, mnemonic="ADD")
+@opcode_handler(0xb0, 0xbf, mnemonic="SUB")
 @opcode_handler(0xc0, 0xcf, mnemonic="AND")
 @opcode_handler(0xd0, 0xdf, mnemonic="OR")
 @opcode_handler(0xe0, 0xef, mnemonic="XOR")
 def handle_2reg_operations(proc, opcode, mnemonic):
-    operation = opcode>>4
+    operation = (opcode>>4) - 9
     reg_dest = (opcode>>2) & 3
     reg_src = (opcode & 3)
-    print(f"Handle operation= {operation} {mnemonic}, r{reg_dest}, r{reg_src}")
-
-
+    print(f"Handle operation= {operation} {mnemonic} r{reg_dest}, r{reg_src}")
+    if (operation == 0):
+        print("MOV OPERATION")
+        proc.set_reg(reg_dest,proc.get_reg(reg_src))
+    elif (operation == 1):
+        proc.set_reg(reg_dest,proc.get_reg(reg_dest) + proc.get_reg(reg_src))
+        print("ADD OPERATION")
+    elif (operation == 2):
+        print("SUB OPERATION")
+    elif (operation == 3):
+        print("AND OPERATION")
+    elif (operation == 4):
+        print("OR OPERATION")
+    elif (operation == 5):
+        print("XOR OPERATION")
+    else:
+        print("INVALID OPCODE GROUP!!!")
 
 @opcode_handler(0xff, mnemonic="HLT")
 def handle_halt(proc, opcode, mnemonic):
@@ -521,6 +535,20 @@ cpu = Processor()
 
 # Example program: [MOVI R1,0xa, MOV R0, R1; INC R1; EXX; MOVI R1, 0x2; MOV R0, R1; INC R1; EXX]
 program = [
+0x40,0x0a,  #MOV R0, 0x0A
+#0002
+0x41,0x0a,  #MOV R1, 0xCA
+
+0xA1,
+0x04,
+0xFF,
+0xA1,
+0xB1,
+0xC1,
+0xD1,
+0xE1,
+
+0xFF,
 
 #0000
 0x40,0x0a,  #MOV R0, 0x0A
