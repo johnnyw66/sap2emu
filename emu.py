@@ -26,7 +26,7 @@ class Processor:
         # Special registers
         self.registers = {
             'PC': 0,   # Program Counter
-            'SP': 0x7FFF,  # Stack Pointer (pointing to top of RAM)
+            'SP': 0x3ff,  # Stack Pointer (pointing to top of RAM)
             'F': 0     # Flags register
         }
 
@@ -83,7 +83,7 @@ class Processor:
             {'R0': 0, 'R1': 0, 'R2': 0, 'R3': 0}
         ]
         self.registers['PC'] = 0
-        self.registers['SP'] = 0x7FFF
+        self.registers['SP'] = 0x3ff
         self.registers['F'] = 0
 
         if not self.rom_loaded:
@@ -94,10 +94,14 @@ class Processor:
     def _map_regnum_to_key(sel,reg):
         return f"R{reg}"
 
+    def _write_memory(self, _16bitaddr, _8bitvalue):
+        # TODO TRAP for writing to ROM - Possibly code here for IO mapping
+        self.memory[_16bitaddr] = _8bitvalue
+
     def store_reg_at_address(self, reg_src, _16bitaddr):
         reg_val = get_reg(self, reg)
-        # TODO Check and ignore if trying to store in the ROM - 
-        self.memory[_16bitaddr]  = reg_val
+        self._write_memory(_16bitaddr, reg_val)
+        
 
 
     def load_reg_from_address(self, reg_src, _16bitaddr):
@@ -115,7 +119,8 @@ class Processor:
 
     def get_reg(self, reg):
         return self.register_banks[self.current_bank][self._map_regnum_to_key(reg)]
-        
+
+
     def load_rom(self, data):
         print("load rom", data)
         """Load ROM data (up to 32KB) into the ROM area."""
@@ -157,6 +162,20 @@ class Processor:
         self.inc_pc()
         return operand
 
+    def pop_stack_16bit(self):
+        low = self.memory[self.registers['SP']]
+        self.dec_sp()
+        high = self.memory[self.registers['SP']]
+        self.dec_sp()
+        return high, low
+
+    def push_stack_16bit(low, high):
+       self._write_memory(self.registers['SP'], high)
+       self.inc_sp()
+       self._write_memory(self.registers['SP'], low)
+       self.inc_sp()
+
+       
     def operand_16bit(self):
         pc = self.registers['PC']
         high = self.memory[pc]
@@ -181,6 +200,25 @@ class Processor:
         regdump = '\n'.join([ ', '.join(f"{reg}: 0x{bank[reg]:02X}" for reg in bank) for bank in self.register_banks])
         return regdump + "\n" + f"PC: 0x{self.registers['PC']:04X} SP: 0x{self.registers['SP']:04X}\nFlags: {self.flag_str()}"
 
+    def stack_dump(self):
+        self.memory_dump(self.registers['SP']-32, 32)
+
+    def memory_dump(self, address=0, size=1024):
+        # Ensure the address is within bounds
+        if address < 0:
+            raise ValueError("Address cannot be negative.")
+        if address >= len(self.memory):
+            raise ValueError("Address is out of bounds.")
+
+        # Limit end address to ensure we do not go out of bounds
+        end_address = min(address + size, len(self.memory))
+
+        # Iterate over the requested memory range and print in hex
+        for i in range(address, end_address, 16):
+            chunk = self.memory[i:end_address][:16]  # Grab 16 bytes at a time
+            hex_values = ' '.join(f'{byte:02X}' for byte in chunk)
+            ascii_values = ''.join(chr(byte) if 32 <= byte <= 126 else '.' for byte in chunk)
+            print(f'{i:08X}  {hex_values:<47}  {ascii_values}')
 
 
 opcode_map = {} # A dictionary to store the mapping of opcodes to functions
@@ -221,6 +259,10 @@ def handle_single(proc, opcode, mnemonic):
 @opcode_handler(0x04, mnemonic="DUMP") 
 def handle_dump(proc, opcode, mnemonic):
     print(proc.reg_dump())
+    proc.memory_dump()
+    print("STACK DUMP")
+    proc.stack_dump()
+
     
 
 @opcode_handler(0x14, 0x17, mnemonic="LD") 
