@@ -44,10 +44,10 @@ class Processor:
         else:
             self.registers['F'] &= ~flag.value  # Clear the flag
 
-    def get_flag(self, flag):
+    def get_flag(self, flag: Flag) -> bool:
         return (self.registers['F'] & flag.value != 0)
 
-    def check_flags(self, result, operand=None, operation:Operation=None):
+    def check_flags(self, result:int, operand=None, operation:Operation=None) -> None:
         """Check and set the appropriate flags based on the result."""
         # Z (Zero) Flag: Set if result is zero
         self.set_flag(Flag.Z, result == 0)
@@ -74,7 +74,7 @@ class Processor:
 
 
         
-    def reset(self):
+    def reset(self) -> None:
         """Reset all registers and memory."""
         print("Reset all registers and memory.")
         self.current_bank = 0
@@ -91,46 +91,46 @@ class Processor:
             self.load_rom([0x01, 0x03, 0xFF, 0x00])
             self.rom_loaded = True
 
-    def _map_regnum_to_key(sel,reg):
+    def _map_regnum_to_key(self, reg:int) -> str:
         return f"R{reg}"
 
-    def _write_memory(self, _16bitaddr, _8bitvalue):
+    def _write_memory(self, _16bitaddr, _8bitvalue) -> None:
         # TODO TRAP for writing to ROM - Possibly code here for IO mapping
         self.memory[_16bitaddr] = _8bitvalue
 
-    def store_reg_at_address(self, reg_src, _16bitaddr):
+    def store_reg_at_address(self, reg_src, _16bitaddr) -> None:
         reg_val = get_reg(self, reg)
         self._write_memory(_16bitaddr, reg_val)
         
 
 
-    def load_reg_from_address(self, reg_src, _16bitaddr):
+    def load_reg_from_address(self, reg_src:int, _16bitaddr:int) -> None:
         reg_val = self.memory[_16bitaddr]
         self.set_reg(reg_src, reg_val)
 
-    def get_pc(self):
+    def get_pc(self) -> int:
         return self.registers['PC']
 
-    def set_pc(self, _16bitvalue):
+    def set_pc(self, _16bitvalue:int) -> None:
         self.registers['PC'] = _16bitvalue
 
-    def set_sp(self, _16bitvalue):
+    def set_sp(self, _16bitvalue:int):
         self.registers['SP'] = _16bitvalue
 
-    def set_reg(self, reg, _8bitvalue):
+    def set_reg(self, reg:int, _8bitvalue:int) -> None:
         self.register_banks[self.current_bank][self._map_regnum_to_key(reg)] = _8bitvalue
 
-    def get_reg(self, reg):
+    def get_reg(self, reg:int) -> int:
         return self.register_banks[self.current_bank][self._map_regnum_to_key(reg)]
 
 
-    def load_rom(self, data):
+    def load_rom(self, data) -> None:
         print("load rom", data)
         """Load ROM data (up to 32KB) into the ROM area."""
         self.memory[:len(data)] = data[:32 * 1024]
         self.rom_loaded = True
 
-    def add_reg_value(self, reg, _8bitvalue):
+    def add_reg_value(self, reg:int, _8bitvalue:int) -> int:
         current_reg_value = self.register_banks[self.current_bank][self._map_regnum_to_key(reg)]
         new_value = current_reg_value + _8bitvalue
         new_value &= 0xff
@@ -139,47 +139,47 @@ class Processor:
         return new_value
 
         
-    def inc_pc(self):
+    def inc_pc(self) -> None:
         self.registers['PC'] += 1  # Increment PC to point to the next instruction
         self.registers['PC'] &= 0xffff
 
-    def inc_sp(self):
+    def inc_sp(self) -> None:
         self.registers['SP'] += 1
         self.registers['SP'] &= 0xffff
 
 
-    def dec_sp(self):
+    def dec_sp(self) -> None:
         self.registers['SP'] -= 1  
         self.registers['SP'] &= 0xffff
 
-    def fetch(self):
+    def fetch(self) -> int:
         """Fetch the next opcode from memory (ROM or RAM)."""
         pc = self.registers['PC']
         opcode = self.memory[pc]
         self.inc_pc()
         return opcode
 
-    def operand_8bit(self):
+    def operand_8bit(self) -> int:
         pc = self.registers['PC']
         operand = self.memory[pc]
         self.inc_pc()
         return operand
 
-    def pop_stack_16bit(self):
+    def pop_stack_16bit(self) -> (int,int):
         self.inc_sp()
         low = self.memory[self.registers['SP']]
         self.inc_sp()
         high = self.memory[self.registers['SP']]
         return high, low
 
-    def push_stack_16bit(self, low, high):
+    def push_stack_16bit(self, low:int, high:int) -> None:
        self._write_memory(self.registers['SP'], high)
        self.dec_sp()
        self._write_memory(self.registers['SP'], low)
        self.dec_sp()
 
        
-    def operand_16bit(self):
+    def operand_16bit(self) -> (int, int):
         pc = self.registers['PC']
         high = self.memory[pc]
         self.inc_pc()
@@ -187,26 +187,26 @@ class Processor:
         self.inc_pc()
         return high, low
 
-    def switch_bank(self):
+    def switch_bank(self) -> None:
         """Flip between the two banks of registers (EXX opcode)."""
         self.current_bank = 1 - self.current_bank  # Toggle between bank 0 and bank 1
         print(f"Switched to register bank {self.current_bank}")
 
-    def _flag_check(self, flg):
+    def _flag_check(self, flg:Flag) -> int:
         return 0 if self.registers['F'] & flg.value == 0 else 1
 
-    def flag_str(self):
+    def flag_str(self) -> str:
         flag = self.registers['F']
         return f"Z:{self._flag_check(Flag.Z)} S:{self._flag_check(Flag.S)} O:{self._flag_check(Flag.O)} V:{self._flag_check(Flag.V)} C:{self._flag_check(Flag.C)}"
 
-    def reg_dump(self):
+    def reg_dump(self) -> str:
         regdump = '\n'.join([ ', '.join(f"{reg}: 0x{bank[reg]:02X}" for reg in bank) for bank in self.register_banks])
         return regdump + "\n" + f"PC: 0x{self.registers['PC']:04X} SP: 0x{self.registers['SP']:04X}\nFlags: {self.flag_str()}"
 
-    def stack_dump(self):
+    def stack_dump(self) -> None:
         self.memory_dump(self.registers['SP'], 32)
 
-    def memory_dump(self, address=0, size=1024):
+    def memory_dump(self, address=0, size=1024) -> None:
         # Ensure the address is within bounds
         if address < 0:
             raise ValueError("Address cannot be negative.")
@@ -250,7 +250,7 @@ def opcode_handler(start, end=None, mnemonic=None):
 @opcode_handler(0x00, mnemonic="NOP") 
 @opcode_handler(0x01, mnemonic="CLC")
 @opcode_handler(0x02, mnemonic="SETC")
-def handle_single(proc, opcode, mnemonic):
+def handle_single(proc:Processor, opcode:int, mnemonic:str):
     if (opcode == 0x00):
         pass
     elif (opcode == 0x01):
@@ -260,7 +260,7 @@ def handle_single(proc, opcode, mnemonic):
 
 # Undocumented OPCODE 'DUMP'
 @opcode_handler(0x04, mnemonic="DUMP") 
-def handle_dump(proc, opcode, mnemonic):
+def handle_dump(proc:Processor, opcode:int, mnemonic:str):
     print(proc.reg_dump())
     #proc.memory_dump()
     print(f"STACK DUMP SP: 0x{proc.registers['SP']:04X}")
@@ -271,7 +271,7 @@ def handle_dump(proc, opcode, mnemonic):
 @opcode_handler(0x14, 0x17, mnemonic="LD") 
 @opcode_handler(0x18, 0x1b, mnemonic="ST")
 @opcode_handler(0x1c, mnemonic="MOVWI SP")
-def handle_load_store(proc, opcode, mnemonic):
+def handle_load_store(proc:Processor, opcode:int, mnemonic:str):
     high_operand, low_operand = proc.operand_16bit()
     _16bitvalue = high_operand * 256 + low_operand
 
@@ -289,7 +289,7 @@ def handle_load_store(proc, opcode, mnemonic):
 
 @opcode_handler(0x1d,mnemonic="INC SP")
 @opcode_handler(0x1e,mnemonic="DEC SP")
-def handle_single_stack(proc, opcode, mnemonic):
+def handle_single_stack(proc:Processor, opcode:int, mnemonic:str):
     if (opcode == 0x1d):
         proc.inc_sp()
     elif (opcode == 0x1e):
@@ -297,7 +297,7 @@ def handle_single_stack(proc, opcode, mnemonic):
 
 
 @opcode_handler(0x1f,0x20, mnemonic="PUSH")
-def handle_push_reg(proc, opcode, mnemonic):
+def handle_push_reg(proc:Processor, opcode:int, mnemonic:str):
     print(f"PUSH {opcode}")
     if (opcode == 0x1f):
         low, high = proc.get_reg(0), proc.get_reg(1)
@@ -307,7 +307,7 @@ def handle_push_reg(proc, opcode, mnemonic):
         proc.push_stack_16bit(low, high)
 
 @opcode_handler(0x22,0x23, mnemonic="POP")
-def handle_pop_reg(proc, opcode, mnemonic):
+def handle_pop_reg(proc:Processor, opcode:int, mnemonic:str):
     print(f"POP {opcode}")
     if (opcode == 0x22):
         r0, r1 = proc.pop_stack_16bit()
@@ -321,12 +321,12 @@ def handle_pop_reg(proc, opcode, mnemonic):
 
 
 @opcode_handler(0x25, mnemonic="EXX")
-def handle_exx(proc, opcode, mnemonic):
+def handle_exx(proc:Processor, opcode:int, mnemonic:str):
     proc.switch_bank()
 
 @opcode_handler(0x28, mnemonic="MOVWI R0")
 @opcode_handler(0x2a, mnemonic="MOVWI R2")
-def handle_movwi(proc, opcode, mnemonic):
+def handle_movwi(proc:Processor, opcode:int, mnemonic:str):
     reg_src = ((opcode>>1) & 3)
     high_operand, low_operand = proc.operand_16bit()
     print(f"**************handle_movwi****************** {mnemonic}, {hex(high_operand * 256 + low_operand)}")
@@ -340,7 +340,7 @@ def handle_movwi(proc, opcode, mnemonic):
 @opcode_handler(0x54, 0x57, mnemonic="SUBI")
 @opcode_handler(0x58, 0x5b, mnemonic="ANDI")
 @opcode_handler(0x5c, 0x5f, mnemonic="ORI")
-def handle_1reg_18bit(proc, opcode, mnemonic):
+def handle_1reg_18bit(proc:Processor, opcode:int, mnemonic:str):
     reg_src = (opcode & 3)
     operand = proc.operand_8bit()
     operation = (opcode>>2) - 16 
@@ -380,7 +380,7 @@ def handle_1reg_18bit(proc, opcode, mnemonic):
         print("DO NOT KNOW HOW TO HANDLE")
 
 @opcode_handler(0x60, 0x63, mnemonic="DJNZ")
-def handle_dnjz(proc, opcode, mnemonic):
+def handle_dnjz(proc:Processor, opcode:int, mnemonic:str):
     reg_src = opcode & 3
     high_operand, low_operand = proc.operand_16bit()
     _16bit_address = high_operand * 256 + low_operand
@@ -394,7 +394,7 @@ def handle_dnjz(proc, opcode, mnemonic):
 
 
 @opcode_handler(0x64, 0x6B, mnemonic="JP")  # Condition Jump
-def handle_cond_jump(proc, opcode, mnemonic):
+def handle_cond_jump(proc:Processor, opcode:int, mnemonic:str):
     print(f"Handle conditional JP 0x0{opcode:02X}")
     high_operand, low_operand = proc.operand_16bit()
     if (opcode == 0x64):
@@ -426,14 +426,14 @@ def handle_cond_jump(proc, opcode, mnemonic):
         proc.set_pc(high_operand * 256 + low_operand)
 
 @opcode_handler(0x6c, mnemonic="JMP")  # Condition Jump
-def handle_uncond_jump(proc, opcode, mnemonic):
+def handle_uncond_jump(proc:Processor, opcode:int, mnemonic:str):
     print("Handle JMP")
 
     high_operand, low_operand = proc.operand_16bit()
     proc.set_pc(high_operand * 256 + low_operand)
 
 @opcode_handler(0x6e, mnemonic="CALL")  # Condition Jump
-def handle_call(proc, opcode, mnemonic):
+def handle_call(proc:Processor, opcode:int, mnemonic:str):
     high_operand, low_operand = proc.operand_16bit()
 
     # Push PC onto stack
@@ -445,7 +445,7 @@ def handle_call(proc, opcode, mnemonic):
     proc.set_pc(high_operand * 256 + low_operand)
     
 @opcode_handler(0x6f, mnemonic="RET")  # Condition Jump
-def handle_ret(proc, opcode, mnemonic):
+def handle_ret(proc:Processor, opcode:int, mnemonic:str):
     high, low  = proc.pop_stack_16bit()
     print(f"Handle RET to return address 0x{high:02X}{low:02X}")
     proc.set_pc(high * 256 + low)
@@ -454,7 +454,7 @@ def handle_ret(proc, opcode, mnemonic):
 
 @opcode_handler(0x80,0x83, mnemonic="SHR" )
 @opcode_handler(0x84,0x87, mnemonic="SHL" )
-def handle_shift(proc, opcode, mnemonic):
+def handle_shift(proc:Processor, opcode:int, mnemonic:str):
     shift_left = (opcode >= 0x84)
     reg_src = (opcode & 3)
     carry = 1 if proc.get_flag(Flag.C) else 0
@@ -471,7 +471,7 @@ def handle_shift(proc, opcode, mnemonic):
 @opcode_handler(0x10, 0x13, mnemonic="OUT")
 @opcode_handler(0x88, 0x8b, mnemonic="INC")
 @opcode_handler(0x8c, 0x8f, mnemonic="DEC")
-def handle_1reg_operation(proc, opcode, mnemonic):
+def handle_1reg_operation(proc:Processor, opcode:int, mnemonic:str):
     reg_src = (opcode & 3)
     if (opcode > 0x8b):
         proc.add_reg_value(reg_src, -1)
@@ -487,7 +487,7 @@ def handle_1reg_operation(proc, opcode, mnemonic):
 @opcode_handler(0xc0, 0xcf, mnemonic="AND")
 @opcode_handler(0xd0, 0xdf, mnemonic="OR")
 @opcode_handler(0xe0, 0xef, mnemonic="XOR")
-def handle_2reg_operations(proc, opcode, mnemonic):
+def handle_2reg_operations(proc:Processor, opcode:int, mnemonic:str):
     operation = (opcode>>4) - 9
     reg_dest = (opcode>>2) & 3
     reg_src = (opcode & 3)
@@ -522,14 +522,14 @@ def handle_2reg_operations(proc, opcode, mnemonic):
         print("INVALID OPCODE GROUP!!!")
 
 @opcode_handler(0xff, mnemonic="HLT")
-def handle_halt(proc, opcode, mnemonic):
+def handle_halt(proc:Processor, opcode:int, mnemonic:str):
     #print(proc.reg_dump())
     while True:
         pass
 
 
 # Simulator core: dispatch based on opcode
-def execute_opcode(proc, opcode):
+def execute_opcode(proc:Processor, opcode:int):
     handler = opcode_map.get(opcode)
     mnemonic = disassembly_map.get(opcode)
     if handler:
@@ -539,12 +539,12 @@ def execute_opcode(proc, opcode):
         print(f"Unhandled opcode: {hex(opcode)}")
 
 
-def execute_proc(proc):
+def execute_proc(proc:Processor):
     opcode = proc.fetch()
     execute_opcode(proc, opcode)
 
 # Disassembler function: get mnemonic for an opcode
-def disassemble_opcode(opcode):
+def disassemble_opcode(opcode:int):
     return disassembly_map.get(opcode, f"Unknown opcode: {hex(opcode)}")
 
 
