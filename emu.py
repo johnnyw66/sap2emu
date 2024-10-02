@@ -455,8 +455,18 @@ def handle_ret(proc, opcode, mnemonic):
 @opcode_handler(0x80,0x83, mnemonic="SHR" )
 @opcode_handler(0x84,0x87, mnemonic="SHL" )
 def handle_shift(proc, opcode, mnemonic):
-    pass
+    shift_left = (opcode >= 0x84)
+    reg_src = (opcode & 3)
+    carry = 1 if proc.get_flag(Flag.C) else 0
+    if (shift_left):
+        new_carry = proc.get_reg(reg_src) & 1
+        result = ((proc.get_reg(reg_src)<<1) & 0xff)  | carry
+    else:
+        new_carry = proc.get_reg(reg_src) & 128
+        result = (proc.get_reg(reg_src)>>1) | (carry<<8)
 
+    proc.set_reg(result)
+    proc.set_flag(Flag.C, carry)
 
 @opcode_handler(0x10, 0x13, mnemonic="OUT")
 @opcode_handler(0x88, 0x8b, mnemonic="INC")
