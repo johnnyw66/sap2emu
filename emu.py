@@ -491,16 +491,28 @@ def handle_2reg_operations(proc, opcode, mnemonic):
         print("MOV OPERATION")
         proc.set_reg(reg_dest,proc.get_reg(reg_src))
     elif (operation == 1):
-        proc.set_reg(reg_dest,proc.get_reg(reg_dest) + proc.get_reg(reg_src))
-        print("ADD OPERATION")
+        result = proc.get_reg(reg_dest) + proc.get_reg(reg_src)
+        proc.set_reg(reg_dest, result)
+        proc.check_flags(result, operand=proc.get_reg(reg_src), operation =  Operation.ADD)
     elif (operation == 2):
-        print("SUB OPERATION")
+        result = proc.get_reg(reg_dest) - proc.get_reg(reg_src)
+        proc.set_reg(reg_dest, result)
+        proc.check_flags(result, operand=proc.get_reg(reg_src), operation = Operation.SUB)
+
     elif (operation == 3):
-        print("AND OPERATION")
+        result = proc.get_reg(reg_dest) & proc.get_reg(reg_src)
+        proc.set_reg(reg_dest, result)
+        proc.check_flags(result, operation = Operation.AND)
+
     elif (operation == 4):
-        print("OR OPERATION")
+        result = proc.get_reg(reg_dest) | proc.get_reg(reg_src)
+        proc.set_reg(reg_dest, result)
+        proc.check_flags(result, operation = Operation.OR)
+
     elif (operation == 5):
-        print("XOR OPERATION")
+        result = proc.get_reg(reg_dest) ^ proc.get_reg(reg_src)
+        proc.set_reg(reg_dest, result)
+        proc.check_flags(result, operation = Operation.XOR)
     else:
         print("INVALID OPCODE GROUP!!!")
 
