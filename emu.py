@@ -473,7 +473,12 @@ def handle_shift(proc, opcode, mnemonic):
 @opcode_handler(0x8c, 0x8f, mnemonic="DEC")
 def handle_1reg_operation(proc, opcode, mnemonic):
     reg_src = (opcode & 3)
-
+    if (opcode > 0x8b):
+        proc.add_reg_value(reg_src, -1)
+    elif (opcode > 0x87):
+        proc.add_reg_value(reg_src, 1)
+    else:
+        print(f"OUT R{reg_src} = 0x{proc.get_reg(reg_src):02X}")
     
 
 @opcode_handler(0x90, 0x9f, mnemonic="MOV")
@@ -547,6 +552,17 @@ cpu = Processor()
 
 # Example program: [MOVI R1,0xa, MOV R0, R1; INC R1; EXX; MOVI R1, 0x2; MOV R0, R1; INC R1; EXX]
 program = [
+#0000
+0x40,0x0a,  #MOV R0, 0x0A
+#0002
+0x41,0xca,  #MOV R1, 0xCA
+#0004
+0x42,0xbd,  #MOV R2, 0xBD,
+#0006
+0x43,0xde,  #MOV R3, 0xDE
+0x10, 0x11, 0x12, 0x13,
+0xff,
+
 0x40,0x0a,  #MOV R0, 0x0A
 #0002
 0x41,0x0a,  #MOV R1, 0xCA
@@ -562,14 +578,7 @@ program = [
 
 0xFF,
 
-#0000
-0x40,0x0a,  #MOV R0, 0x0A
-#0002
-0x41,0xca,  #MOV R1, 0xCA
-#0004
-0x42,0xbd,  #MOV R2, 0xBD,
-#0006
-0x43,0xde,  #MOV R3, 0xDE
+
 #0008
 0x1f,       # PUSH R0R1
 #0009
