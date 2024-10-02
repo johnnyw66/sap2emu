@@ -250,7 +250,7 @@ def opcode_handler(start, end=None, mnemonic=None):
 @opcode_handler(0x00, mnemonic="NOP") 
 @opcode_handler(0x01, mnemonic="CLC")
 @opcode_handler(0x02, mnemonic="SETC")
-def handle_single(proc:Processor, opcode:int, mnemonic:str):
+def handle_single(proc:Processor, opcode:int, mnemonic:str) -> None:
     if (opcode == 0x00):
         pass
     elif (opcode == 0x01):
@@ -260,7 +260,7 @@ def handle_single(proc:Processor, opcode:int, mnemonic:str):
 
 # Undocumented OPCODE 'DUMP'
 @opcode_handler(0x04, mnemonic="DUMP") 
-def handle_dump(proc:Processor, opcode:int, mnemonic:str):
+def handle_dump(proc:Processor, opcode:int, mnemonic:str) -> None:
     print(proc.reg_dump())
     #proc.memory_dump()
     print(f"STACK DUMP SP: 0x{proc.registers['SP']:04X}")
@@ -271,7 +271,7 @@ def handle_dump(proc:Processor, opcode:int, mnemonic:str):
 @opcode_handler(0x14, 0x17, mnemonic="LD") 
 @opcode_handler(0x18, 0x1b, mnemonic="ST")
 @opcode_handler(0x1c, mnemonic="MOVWI SP")
-def handle_load_store(proc:Processor, opcode:int, mnemonic:str):
+def handle_load_store(proc:Processor, opcode:int, mnemonic:str) -> None:
     high_operand, low_operand = proc.operand_16bit()
     _16bitvalue = high_operand * 256 + low_operand
 
@@ -289,7 +289,7 @@ def handle_load_store(proc:Processor, opcode:int, mnemonic:str):
 
 @opcode_handler(0x1d,mnemonic="INC SP")
 @opcode_handler(0x1e,mnemonic="DEC SP")
-def handle_single_stack(proc:Processor, opcode:int, mnemonic:str):
+def handle_single_stack(proc:Processor, opcode:int, mnemonic:str) -> None:
     if (opcode == 0x1d):
         proc.inc_sp()
     elif (opcode == 0x1e):
@@ -297,7 +297,7 @@ def handle_single_stack(proc:Processor, opcode:int, mnemonic:str):
 
 
 @opcode_handler(0x1f,0x20, mnemonic="PUSH")
-def handle_push_reg(proc:Processor, opcode:int, mnemonic:str):
+def handle_push_reg(proc:Processor, opcode:int, mnemonic:str) -> None:
     print(f"PUSH {opcode}")
     if (opcode == 0x1f):
         low, high = proc.get_reg(0), proc.get_reg(1)
@@ -307,7 +307,7 @@ def handle_push_reg(proc:Processor, opcode:int, mnemonic:str):
         proc.push_stack_16bit(low, high)
 
 @opcode_handler(0x22,0x23, mnemonic="POP")
-def handle_pop_reg(proc:Processor, opcode:int, mnemonic:str):
+def handle_pop_reg(proc:Processor, opcode:int, mnemonic:str) -> None:
     print(f"POP {opcode}")
     if (opcode == 0x22):
         r0, r1 = proc.pop_stack_16bit()
@@ -321,12 +321,12 @@ def handle_pop_reg(proc:Processor, opcode:int, mnemonic:str):
 
 
 @opcode_handler(0x25, mnemonic="EXX")
-def handle_exx(proc:Processor, opcode:int, mnemonic:str):
+def handle_exx(proc:Processor, opcode:int, mnemonic:str) -> None:
     proc.switch_bank()
 
 @opcode_handler(0x28, mnemonic="MOVWI R0")
 @opcode_handler(0x2a, mnemonic="MOVWI R2")
-def handle_movwi(proc:Processor, opcode:int, mnemonic:str):
+def handle_movwi(proc:Processor, opcode:int, mnemonic:str) -> None:
     reg_src = ((opcode>>1) & 3)
     high_operand, low_operand = proc.operand_16bit()
     print(f"**************handle_movwi****************** {mnemonic}, {hex(high_operand * 256 + low_operand)}")
@@ -340,7 +340,7 @@ def handle_movwi(proc:Processor, opcode:int, mnemonic:str):
 @opcode_handler(0x54, 0x57, mnemonic="SUBI")
 @opcode_handler(0x58, 0x5b, mnemonic="ANDI")
 @opcode_handler(0x5c, 0x5f, mnemonic="ORI")
-def handle_1reg_18bit(proc:Processor, opcode:int, mnemonic:str):
+def handle_1reg_18bit(proc:Processor, opcode:int, mnemonic:str) -> None:
     reg_src = (opcode & 3)
     operand = proc.operand_8bit()
     operation = (opcode>>2) - 16 
@@ -380,7 +380,7 @@ def handle_1reg_18bit(proc:Processor, opcode:int, mnemonic:str):
         print("DO NOT KNOW HOW TO HANDLE")
 
 @opcode_handler(0x60, 0x63, mnemonic="DJNZ")
-def handle_dnjz(proc:Processor, opcode:int, mnemonic:str):
+def handle_dnjz(proc:Processor, opcode:int, mnemonic:str) -> None:
     reg_src = opcode & 3
     high_operand, low_operand = proc.operand_16bit()
     _16bit_address = high_operand * 256 + low_operand
@@ -394,7 +394,7 @@ def handle_dnjz(proc:Processor, opcode:int, mnemonic:str):
 
 
 @opcode_handler(0x64, 0x6B, mnemonic="JP")  # Condition Jump
-def handle_cond_jump(proc:Processor, opcode:int, mnemonic:str):
+def handle_cond_jump(proc:Processor, opcode:int, mnemonic:str) -> None:
     print(f"Handle conditional JP 0x0{opcode:02X}")
     high_operand, low_operand = proc.operand_16bit()
     if (opcode == 0x64):
@@ -426,14 +426,14 @@ def handle_cond_jump(proc:Processor, opcode:int, mnemonic:str):
         proc.set_pc(high_operand * 256 + low_operand)
 
 @opcode_handler(0x6c, mnemonic="JMP")  # Condition Jump
-def handle_uncond_jump(proc:Processor, opcode:int, mnemonic:str):
+def handle_uncond_jump(proc:Processor, opcode:int, mnemonic:str) -> None:
     print("Handle JMP")
 
     high_operand, low_operand = proc.operand_16bit()
     proc.set_pc(high_operand * 256 + low_operand)
 
 @opcode_handler(0x6e, mnemonic="CALL")  # Condition Jump
-def handle_call(proc:Processor, opcode:int, mnemonic:str):
+def handle_call(proc:Processor, opcode:int, mnemonic:str) -> None:
     high_operand, low_operand = proc.operand_16bit()
 
     # Push PC onto stack
@@ -445,7 +445,7 @@ def handle_call(proc:Processor, opcode:int, mnemonic:str):
     proc.set_pc(high_operand * 256 + low_operand)
     
 @opcode_handler(0x6f, mnemonic="RET")  # Condition Jump
-def handle_ret(proc:Processor, opcode:int, mnemonic:str):
+def handle_ret(proc:Processor, opcode:int, mnemonic:str) -> None:
     high, low  = proc.pop_stack_16bit()
     print(f"Handle RET to return address 0x{high:02X}{low:02X}")
     proc.set_pc(high * 256 + low)
@@ -454,7 +454,7 @@ def handle_ret(proc:Processor, opcode:int, mnemonic:str):
 
 @opcode_handler(0x80,0x83, mnemonic="SHR" )
 @opcode_handler(0x84,0x87, mnemonic="SHL" )
-def handle_shift(proc:Processor, opcode:int, mnemonic:str):
+def handle_shift(proc:Processor, opcode:int, mnemonic:str) -> None:
     shift_left = (opcode >= 0x84)
     reg_src = (opcode & 3)
     carry = 1 if proc.get_flag(Flag.C) else 0
@@ -471,7 +471,7 @@ def handle_shift(proc:Processor, opcode:int, mnemonic:str):
 @opcode_handler(0x10, 0x13, mnemonic="OUT")
 @opcode_handler(0x88, 0x8b, mnemonic="INC")
 @opcode_handler(0x8c, 0x8f, mnemonic="DEC")
-def handle_1reg_operation(proc:Processor, opcode:int, mnemonic:str):
+def handle_1reg_operation(proc:Processor, opcode:int, mnemonic:str) -> None:
     reg_src = (opcode & 3)
     if (opcode > 0x8b):
         proc.add_reg_value(reg_src, -1)
@@ -487,7 +487,7 @@ def handle_1reg_operation(proc:Processor, opcode:int, mnemonic:str):
 @opcode_handler(0xc0, 0xcf, mnemonic="AND")
 @opcode_handler(0xd0, 0xdf, mnemonic="OR")
 @opcode_handler(0xe0, 0xef, mnemonic="XOR")
-def handle_2reg_operations(proc:Processor, opcode:int, mnemonic:str):
+def handle_2reg_operations(proc:Processor, opcode:int, mnemonic:str) -> None:
     operation = (opcode>>4) - 9
     reg_dest = (opcode>>2) & 3
     reg_src = (opcode & 3)
@@ -522,14 +522,14 @@ def handle_2reg_operations(proc:Processor, opcode:int, mnemonic:str):
         print("INVALID OPCODE GROUP!!!")
 
 @opcode_handler(0xff, mnemonic="HLT")
-def handle_halt(proc:Processor, opcode:int, mnemonic:str):
+def handle_halt(proc:Processor, opcode:int, mnemonic:str) -> None:
     #print(proc.reg_dump())
     while True:
         pass
 
 
 # Simulator core: dispatch based on opcode
-def execute_opcode(proc:Processor, opcode:int):
+def execute_opcode(proc:Processor, opcode:int) -> None:
     handler = opcode_map.get(opcode)
     mnemonic = disassembly_map.get(opcode)
     if handler:
@@ -539,12 +539,12 @@ def execute_opcode(proc:Processor, opcode:int):
         print(f"Unhandled opcode: {hex(opcode)}")
 
 
-def execute_proc(proc:Processor):
+def execute_proc(proc:Processor) -> None:
     opcode = proc.fetch()
     execute_opcode(proc, opcode)
 
 # Disassembler function: get mnemonic for an opcode
-def disassemble_opcode(opcode:int):
+def disassemble_opcode(opcode:int) -> str:
     return disassembly_map.get(opcode, f"Unknown opcode: {hex(opcode)}")
 
 
