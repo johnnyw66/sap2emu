@@ -108,6 +108,9 @@ class Processor:
         reg_val = self.memory[_16bitaddr]
         self.set_reg(reg_src, reg_val)
 
+    def get_pc(self):
+        return self.registers['PC']
+
     def set_pc(self, _16bitvalue):
         self.registers['PC'] = _16bitvalue
 
@@ -163,17 +166,17 @@ class Processor:
         return operand
 
     def pop_stack_16bit(self):
+        self.inc_sp()
         low = self.memory[self.registers['SP']]
-        self.dec_sp()
+        self.inc_sp()
         high = self.memory[self.registers['SP']]
-        self.dec_sp()
         return high, low
 
-    def push_stack_16bit(low, high):
+    def push_stack_16bit(self, low, high):
        self._write_memory(self.registers['SP'], high)
-       self.inc_sp()
+       self.dec_sp()
        self._write_memory(self.registers['SP'], low)
-       self.inc_sp()
+       self.dec_sp()
 
        
     def operand_16bit(self):
@@ -201,7 +204,7 @@ class Processor:
         return regdump + "\n" + f"PC: 0x{self.registers['PC']:04X} SP: 0x{self.registers['SP']:04X}\nFlags: {self.flag_str()}"
 
     def stack_dump(self):
-        self.memory_dump(self.registers['SP']-32, 32)
+        self.memory_dump(self.registers['SP'], 32)
 
     def memory_dump(self, address=0, size=1024):
         # Ensure the address is within bounds
@@ -259,8 +262,8 @@ def handle_single(proc, opcode, mnemonic):
 @opcode_handler(0x04, mnemonic="DUMP") 
 def handle_dump(proc, opcode, mnemonic):
     print(proc.reg_dump())
-    proc.memory_dump()
-    print("STACK DUMP")
+    #proc.memory_dump()
+    print(f"STACK DUMP SP: 0x{proc.registers['SP']:04X}")
     proc.stack_dump()
 
     
@@ -295,11 +298,27 @@ def handle_single_stack(proc, opcode, mnemonic):
 
 @opcode_handler(0x1f,0x20, mnemonic="PUSH")
 def handle_push_reg(proc, opcode, mnemonic):
-    pass
+    print(f"PUSH {opcode}")
+    if (opcode == 0x1f):
+        low, high = proc.get_reg(0), proc.get_reg(1)
+        proc.push_stack_16bit(low, high)
+    elif (opcode == 0x20):
+        low, high = proc.get_reg(2), proc.get_reg(3)
+        proc.push_stack_16bit(low, high)
 
 @opcode_handler(0x22,0x23, mnemonic="POP")
 def handle_pop_reg(proc, opcode, mnemonic):
-    pass
+    print(f"POP {opcode}")
+    if (opcode == 0x22):
+        r0, r1 = proc.pop_stack_16bit()
+        proc.set_reg(0, r0),
+        proc.set_reg(1, r1)
+        proc.push_stack_16bit(low, high)
+    elif (opcode == 0x23):
+        r2, r3 = proc.pop_stack_16bit()
+        proc.set_reg(2, r2),
+        proc.set_reg(3, r3)
+
 
 @opcode_handler(0x25, mnemonic="EXX")
 def handle_exx(proc, opcode, mnemonic):
@@ -325,7 +344,7 @@ def handle_1reg_18bit(proc, opcode, mnemonic):
     reg_src = (opcode & 3)
     operand = proc.operand_8bit()
     operation = (opcode>>2) - 16 
-    print(f"{mnemonic} r{reg_src}, {operand} (group {operation})\n")
+    print(f"{mnemonic} r{reg_src}, 0x{operand:02X} (group {operation})\n")
 
 
     if (operation == 0):
@@ -415,15 +434,22 @@ def handle_uncond_jump(proc, opcode, mnemonic):
 
 @opcode_handler(0x6e, mnemonic="CALL")  # Condition Jump
 def handle_call(proc, opcode, mnemonic):
-    print("Handle CALL")
     high_operand, low_operand = proc.operand_16bit()
-    # TODO push PC onto Stack
+
+    # Push PC onto stack
+    pc = proc.get_pc()
+    proc.push_stack_16bit(pc & 0xff, (pc >> 8) & 0xff)
+
+    print(f"Handle CALL to 0x{high_operand:02X}{low_operand:02X}")
+
     proc.set_pc(high_operand * 256 + low_operand)
     
 @opcode_handler(0x6f, mnemonic="RET")  # Condition Jump
 def handle_ret(proc, opcode, mnemonic):
-    print("Handle RET")
-    # TODO pop PC 
+    high, low  = proc.pop_stack_16bit()
+    print(f"Handle RET to return address 0x{high:02X}{low:02X}")
+    proc.set_pc(high * 256 + low)
+
 
 
 @opcode_handler(0x80,0x83, mnemonic="SHR" )
@@ -456,7 +482,7 @@ def handle_2reg_operations(proc, opcode, mnemonic):
 
 @opcode_handler(0xff, mnemonic="HLT")
 def handle_halt(proc, opcode, mnemonic):
-    print(proc.reg_dump())
+    #print(proc.reg_dump())
     while True:
         pass
 
@@ -485,6 +511,30 @@ cpu = Processor()
 
 # Example program: [MOVI R1,0xa, MOV R0, R1; INC R1; EXX; MOVI R1, 0x2; MOV R0, R1; INC R1; EXX]
 program = [
+
+#0000
+0x40,0x0a,  #MOV R0, 0x0A
+#0002
+0x41,0xca,  #MOV R1, 0xCA
+#0004
+0x42,0xbd,  #MOV R2, 0xBD,
+#0006
+0x43,0xde,  #MOV R3, 0xDE
+#0008
+0x1f,       # PUSH R0R1
+#0009
+0x20,       # PUSH R2R3
+#000A
+0x6e, 0x00,0x0f, #CALL 0x000F
+#000D
+0x04,   # DUMP
+#000E
+0xff,   # HLT
+#000F
+0x00, # NOP
+#0010
+0x6f, # RET
+
 0x40,0x00,
 0x04,
 0x60,0x00,0x01,
