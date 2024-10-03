@@ -1,5 +1,123 @@
+# MIT License
+# 
+# Copyright (c) 2024 Johnny Wilson
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# 
+# Author: Johnny Wilson
+# Location: Brighton, Sussex
+
+
 from enum import Enum
 
+
+class IODevice:
+    """Abstract base class for I/O devices."""
+    def read(self, address):
+        raise NotImplementedError("Read not implemented")
+
+    def write(self, address, value):
+        raise NotImplementedError("Write not implemented")
+
+
+class SoundChip(IODevice):
+    def __init__(self, sound_volume_address, sound_freq_address_low, sound_freq_address_high):
+        self.volume_register = 0
+        self.volume_freq_low = 0
+        self.volume_freq_low_latched = 0
+        self.volume_freq_high = 0
+
+        self.sound_volume_address = sound_volume_address
+        self.sound_freq_address_low = sound_freq_address_low
+        self.sound_freq_address_high = sound_freq_address_high
+
+
+
+    def read(self, address):
+        if address == self.sound_volume_address:
+            return self.volume_register
+        # If the read operation targets an unmapped address, we could raise an error
+        raise ValueError(f"Invalid read address {address} for SoundChip")
+
+    def write(self, address, value):
+        if address == self.sound_volume_address:
+            self.volume_register = value
+            print(f"Sound chip volume set to: {value}")
+        if address == self.sound_freq_address_low:
+            self.sound_freq_address_low_latched = value
+        if address == self.sound_freq_address_high:
+            self.sound_freq_address_low = self.sound_freq_address_low_latched
+            self.sound_freq_address_high = value
+        else:
+            raise ValueError(f"Invalid write address {address} for SoundChip")
+
+class Memory:
+    def __init__(self, rom_size, ram_size):
+        self.rom = bytearray(rom_size)
+        self.ram = bytearray(ram_size)
+        print(len(self.rom), len(self.ram))
+        self.io_devices = {}  # Dictionary to hold mapped I/O devices
+
+    def map_io_device(self, address, device):
+        """Map a hardware device to a specific memory address."""
+        self.io_devices[address] = device
+
+    def raw_read(self, address):
+        return self.read(address, True)
+
+    def raw_write(self, address, value):
+        return self.write(address, value, True)
+
+    def read(self, address, raw = False):
+        """Read from memory or I/O device."""
+        # Check if the address maps to an I/O device
+        if not raw and address in self.io_devices:
+            # Read from the mapped I/O device
+            return self.io_devices[address].read(address)
+        # Handle ROM/RAM reads based on the address range
+        if address < len(self.rom):
+            # Read from ROM
+            return self.rom[address]
+        elif len(self.rom) <= address < len(self.rom) + len(self.ram):
+            # Read from RAM
+            return self.ram[address - len(self.rom)]
+        else:
+            raise ValueError("Address out of bounds")
+
+    def write(self, address, value, raw = False):
+        """Write to memory or I/O device."""
+        # Check if the address maps to an I/O device
+        if not raw and address in self.io_devices:
+            # Write to the mapped I/O device
+            self.io_devices[address].write(address, value)
+        # Handle ROM/RAM writes based on the address range
+        elif len(self.rom) <= address < len(self.rom) + len(self.ram):
+            # Write to RAM (ROM is typically read-only)
+            self.ram[address - len(self.rom)] = value
+        elif raw:
+            self.rom[address] = value
+        else:            
+            raise ValueError("Address out of bounds")
+
+    def size(self):
+        return len(self.rom) + len(self.ram)
+    
 class Flag(Enum):
     Z = 0x01  # Zero flag (bit 0)
     S = 0x02  # Sign flag (bit 1)
@@ -15,7 +133,7 @@ class Operation(Enum):
     SHIFT_LEFT = 4
 
 class Processor:
-    def __init__(self):
+    def __init__(self, iomapped_memory):
         # Two banks of 4 general-purpose registers: R0, R1, R2, R3
         self.register_banks = [
             {'R0': 0, 'R1': 0, 'R2': 0, 'R3': 0},  # Bank 0
@@ -32,7 +150,8 @@ class Processor:
 
         # Memory layout: 32 KB ROM (0x0000 - 0x7FFF) and 32 KB RAM (0x8000 - 0xFFFF)
         self.memory = [0] * (32 * 1024) * 2  # 64 KB total memory
-        
+        self.iomemory = iomapped_memory
+
         # Load some example ROM code into the first 32KB of memory (ROM)
         # You could expand this with real code later on
         self.rom_loaded = False
@@ -98,6 +217,10 @@ class Processor:
         # TODO TRAP for writing to ROM - Possibly code here for IO mapping
         self.memory[_16bitaddr] = _8bitvalue
 
+    def _read_memory(self, _16bitaddr):
+        # TODO TRAP for READ to ROM - Possibly code here for IO mapping
+        return self.memory[_16bitaddr]
+
     def store_reg_at_address(self, reg_src, _16bitaddr) -> None:
         reg_val = get_reg(self, reg)
         self._write_memory(_16bitaddr, reg_val)
@@ -105,7 +228,7 @@ class Processor:
 
 
     def load_reg_from_address(self, reg_src:int, _16bitaddr:int) -> None:
-        reg_val = self.memory[_16bitaddr]
+        reg_val = self._read_memory(_16bitaddr)
         self.set_reg(reg_src, reg_val)
 
     def get_pc(self) -> int:
@@ -128,6 +251,10 @@ class Processor:
         print("load rom", data)
         """Load ROM data (up to 32KB) into the ROM area."""
         self.memory[:len(data)] = data[:32 * 1024]
+        # Copy over to io mapped memory
+        for addr,value in enumerate(data):
+            self.iomemory.raw_write(addr, data[addr])
+
         self.rom_loaded = True
 
     def add_reg_value(self, reg:int, _8bitvalue:int) -> int:
@@ -155,21 +282,21 @@ class Processor:
     def fetch(self) -> int:
         """Fetch the next opcode from memory (ROM or RAM)."""
         pc = self.registers['PC']
-        opcode = self.memory[pc]
+        opcode = self._read_memory(pc)
         self.inc_pc()
         return opcode
 
     def operand_8bit(self) -> int:
         pc = self.registers['PC']
-        operand = self.memory[pc]
+        operand = self._read_memory(pc)
         self.inc_pc()
         return operand
 
     def pop_stack_16bit(self) -> (int,int):
         self.inc_sp()
-        low = self.memory[self.registers['SP']]
+        low = self._read_memory(self.registers['SP'])
         self.inc_sp()
-        high = self.memory[self.registers['SP']]
+        high = self._read_memory(self.registers['SP'])
         return high, low
 
     def push_stack_16bit(self, low:int, high:int) -> None:
@@ -181,9 +308,9 @@ class Processor:
        
     def operand_16bit(self) -> (int, int):
         pc = self.registers['PC']
-        high = self.memory[pc]
+        high = self._read_memory(pc)
         self.inc_pc()
-        low = self.memory[(pc+1) & 0xffff]
+        low = self._read_memory((pc+1) & 0xffff)
         self.inc_pc()
         return high, low
 
@@ -313,7 +440,6 @@ def handle_pop_reg(proc:Processor, opcode:int, mnemonic:str) -> None:
         r0, r1 = proc.pop_stack_16bit()
         proc.set_reg(0, r0),
         proc.set_reg(1, r1)
-        proc.push_stack_16bit(low, high)
     elif (opcode == 0x23):
         r2, r3 = proc.pop_stack_16bit()
         proc.set_reg(2, r2),
@@ -548,7 +674,22 @@ def disassemble_opcode(opcode:int) -> str:
     return disassembly_map.get(opcode, f"Unknown opcode: {hex(opcode)}")
 
 
-cpu = Processor()
+
+# Example Memory Mapped Hardware - (SoundChip)
+
+sound_volume_address = 0x3fff
+sound_freq_address_low = 0x3ffe
+sound_freq_address_high = 0x3ffe
+
+
+memory_mapped_io = Memory(rom_size=0x8000, ram_size=0x8000)
+sound_chip = SoundChip(sound_volume_address, sound_freq_address_low, sound_freq_address_high)
+memory_mapped_io.map_io_device(sound_volume_address, sound_chip)
+memory_mapped_io.map_io_device(sound_freq_address_low, sound_chip)
+memory_mapped_io.map_io_device(sound_freq_address_high, sound_chip)
+
+
+cpu = Processor(memory_mapped_io)
 
 # Example program: [MOVI R1,0xa, MOV R0, R1; INC R1; EXX; MOVI R1, 0x2; MOV R0, R1; INC R1; EXX]
 program = [
