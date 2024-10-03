@@ -24,6 +24,8 @@
 # Location: Brighton, Sussex
 
 
+""" SAP2 Emulator - See https://github.com/johnnyw66/SAP2 """
+
 from enum import Enum
 
 
@@ -149,7 +151,6 @@ class Processor:
         }
 
         # Memory layout: 32 KB ROM (0x0000 - 0x7FFF) and 32 KB RAM (0x8000 - 0xFFFF)
-        self.memory = [0] * (32 * 1024) * 2  # 64 KB total memory
         self.iomemory = iomapped_memory
 
         # Load some example ROM code into the first 32KB of memory (ROM)
@@ -214,12 +215,10 @@ class Processor:
         return f"R{reg}"
 
     def _write_memory(self, _16bitaddr, _8bitvalue) -> None:
-        # TODO TRAP for writing to ROM - Possibly code here for IO mapping
-        self.memory[_16bitaddr] = _8bitvalue
+        return self.iomemory.write(_16bitaddr, _8bitvalue)
 
     def _read_memory(self, _16bitaddr):
-        # TODO TRAP for READ to ROM - Possibly code here for IO mapping
-        return self.memory[_16bitaddr]
+        return self.iomemory.read(_16bitaddr)
 
     def store_reg_at_address(self, reg_src, _16bitaddr) -> None:
         reg_val = get_reg(self, reg)
@@ -250,8 +249,7 @@ class Processor:
     def load_rom(self, data) -> None:
         print("load rom", data)
         """Load ROM data (up to 32KB) into the ROM area."""
-        self.memory[:len(data)] = data[:32 * 1024]
-        # Copy over to io mapped memory
+
         for addr,value in enumerate(data):
             self.iomemory.raw_write(addr, data[addr])
 
@@ -337,15 +335,15 @@ class Processor:
         # Ensure the address is within bounds
         if address < 0:
             raise ValueError("Address cannot be negative.")
-        if address >= len(self.memory):
+        if address >= self.iomemory.size():
             raise ValueError("Address is out of bounds.")
 
         # Limit end address to ensure we do not go out of bounds
-        end_address = min(address + size, len(self.memory))
+        end_address = min(address + size, self.iomemory.size())
 
         # Iterate over the requested memory range and print in hex
         for i in range(address, end_address, 16):
-            chunk = self.memory[i:end_address][:16]  # Grab 16 bytes at a time
+            chunk = [self.iomemory.raw_read(i + offset) for offset in range(16)]   # Grab 16 bytes at a time
             hex_values = ' '.join(f'{byte:02X}' for byte in chunk)
             ascii_values = ''.join(chr(byte) if 32 <= byte <= 126 else '.' for byte in chunk)
             print(f'{i:08X}  {hex_values:<47}  {ascii_values}')
@@ -702,6 +700,7 @@ program = [
 #0006
 0x43,0xde,  #MOV R3, 0xDE
 0x10, 0x11, 0x12, 0x13,
+0x04,
 0xff,
 
 0x40,0x0a,  #MOV R0, 0x0A
