@@ -63,9 +63,13 @@ class SoundChip(IODevice):
             print(f"Sound chip volume set to: {value}")
         if address == self.sound_freq_address_low:
             self.sound_freq_address_low_latched = value
+            print(f"Sound chip freq low byte latched with: {value}")
+
         if address == self.sound_freq_address_high:
             self.sound_freq_address_low = self.sound_freq_address_low_latched
             self.sound_freq_address_high = value
+            print(f"Sound chip freq high byte set to: {value}")
+            print(f"Sound chip Frequency value 0x{self.sound_freq_address_high}{self.sound_freq_address_low}")
         else:
             raise ValueError(f"Invalid write address {address} for SoundChip")
 
@@ -146,7 +150,7 @@ class Processor:
         # Special registers
         self.registers = {
             'PC': 0,   # Program Counter
-            'SP': 0x3ff,  # Stack Pointer (pointing to top of RAM)
+            'SP': 0xffff,  # Stack Pointer (pointing to top of RAM)
             'F': 0     # Flags register
         }
 
@@ -203,7 +207,7 @@ class Processor:
             {'R0': 0, 'R1': 0, 'R2': 0, 'R3': 0}
         ]
         self.registers['PC'] = 0
-        self.registers['SP'] = 0x3ff
+        self.registers['SP'] = 0xffff
         self.registers['F'] = 0
 
         if not self.rom_loaded:
@@ -248,12 +252,19 @@ class Processor:
 
     def load_rom(self, data) -> None:
         print("load rom", data)
-        """Load ROM data (up to 32KB) into the ROM area."""
+        """Load data (up to 32KB) into the ROM area."""
 
         for addr,value in enumerate(data):
             self.iomemory.raw_write(addr, data[addr])
 
         self.rom_loaded = True
+
+    def load_ram(self, data, start_address) -> None:
+        print("load ram", data, " into address ", start_address)
+        """Load data (up to 32KB) into the RAM area."""
+        for addr_offset,value in enumerate(data):
+            print(f"Write to {(start_address + addr_offset):04X} {data[addr_offset]:02X}")
+            self.iomemory.raw_write(start_address + addr_offset, data[addr_offset])
 
     def add_reg_value(self, reg:int, _8bitvalue:int) -> int:
         current_reg_value = self.register_banks[self.current_bank][self._map_regnum_to_key(reg)]
@@ -281,6 +292,7 @@ class Processor:
         """Fetch the next opcode from memory (ROM or RAM)."""
         pc = self.registers['PC']
         opcode = self._read_memory(pc)
+        print(f"FETCH {pc:04X} {opcode:02X}")
         self.inc_pc()
         return opcode
 
@@ -329,7 +341,8 @@ class Processor:
         return regdump + "\n" + f"PC: 0x{self.registers['PC']:04X} SP: 0x{self.registers['SP']:04X}\nFlags: {self.flag_str()}"
 
     def stack_dump(self) -> None:
-        self.memory_dump(self.registers['SP'], 32)
+        #self.memory_dump(self.registers['SP']-31, 32)
+        self.memory_dump(0xFFFF-31, 32)
 
     def memory_dump(self, address=0, size=1024) -> None:
         # Ensure the address is within bounds
@@ -554,6 +567,7 @@ def handle_uncond_jump(proc:Processor, opcode:int, mnemonic:str) -> None:
     print("Handle JMP")
 
     high_operand, low_operand = proc.operand_16bit()
+    print(f"JMP 0x{high_operand:02X}{low_operand:02X}")
     proc.set_pc(high_operand * 256 + low_operand)
 
 @opcode_handler(0x6e, mnemonic="CALL")  # Condition Jump
@@ -690,6 +704,11 @@ memory_mapped_io.map_io_device(sound_freq_address_high, sound_chip)
 cpu = Processor(memory_mapped_io)
 
 # Example program: [MOVI R1,0xa, MOV R0, R1; INC R1; EXX; MOVI R1, 0x2; MOV R0, R1; INC R1; EXX]
+rom = [
+    0x40,0x0a,  #MOV R0, 0x0A
+    0x6c, 0x80, 0x00
+]
+
 program = [
 #0000
 0x40,0x0a,  #MOV R0, 0x0A
@@ -700,6 +719,7 @@ program = [
 #0006
 0x43,0xde,  #MOV R3, 0xDE
 0x10, 0x11, 0x12, 0x13,
+0x1f,
 0x04,
 0xff,
 
@@ -786,11 +806,14 @@ program = [
 0x58, 0x02, # ADDI R0,2
 
 0xff]  # Opcodes to be executed
-cpu.load_rom(program)
+
+cpu.load_rom(rom)
+cpu.load_ram(program, 0x8000)
+cpu.memory_dump(address=0x8000, size=256)
 
 # Simulate execution of the program
 cpu.reset()
-while cpu.registers['PC'] < len(program):
+while True:
     execute_proc(cpu)
 
 # Disassemble the program
