@@ -266,6 +266,39 @@ class Processor:
             print(f"Write to {(start_address + addr_offset):04X} {data[addr_offset]:02X}")
             self.iomemory.raw_write(start_address + addr_offset, data[addr_offset])
 
+    def load_v3_hex(self, hex_file, rom_loaded=False):
+        # Open and read the HEX file
+        with open(hex_file, 'r', encoding='utf-8-sig') as f:
+            for line in f:
+                # Strip any surrounding whitespace
+                line = line.strip()
+
+                # Ignore empty lines
+                if not line:
+                    continue
+                print(f"<{line}>")
+                # Split the line into address and data parts
+                parts = line.split(':')
+                print(parts)
+                if len(parts) != 2:
+                    raise ValueError(f"Invalid line format: {line}")
+                
+                # Parse the address (first part)
+                address = int(parts[0], 16)
+
+                # Parse the hex data (second part), splitting by spaces
+                data_bytes = parts[1].strip().split()
+
+                # Write each byte to the corresponding memory address
+                for i, byte_str in enumerate(data_bytes):
+                    byte_value = int(byte_str, 16)
+                    self.iomemory.raw_write(address + i, byte_value)
+
+        self.rom_loaded = rom_loaded
+
+        print("HEX file processing complete.")
+
+
     def add_reg_value(self, reg:int, _8bitvalue:int) -> int:
         current_reg_value = self.register_banks[self.current_bank][self._map_regnum_to_key(reg)]
         new_value = current_reg_value + _8bitvalue
@@ -809,6 +842,8 @@ program = [
 
 cpu.load_rom(rom)
 cpu.load_ram(program, 0x8000)
+#cpu.load_v3_hex('./example.hex', rom_loaded=False)
+
 cpu.memory_dump(address=0x8000, size=256)
 
 # Simulate execution of the program
