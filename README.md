@@ -25,11 +25,11 @@ Two Banks of Registers: The processor includes two banks of four registers each 
 
 ## Memory:
 
-32 KB ROM: Contains the program code.
-32 KB RAM: Used for data storage.
-Memory-Mapped I/O: The emulator supports memory-mapped I/O for peripheral devices, such as sound chips. These peripherals can be dynamically added or omitted, providing flexibility for simulating various hardware configurations. If no I/O device is mapped to a specific address, the system defaults to returning ROM/RAM values.
++ 32 KB ROM: Contains the program code.
++ 32 KB RAM: Used for additional program code and data storage.
++ Memory-Mapped I/O: The emulator supports memory-mapped I/O for peripheral devices, such as sound chips. These peripherals can be dynamically added or omitted, providing flexibility for simulating various hardware configurations. If no I/O device is mapped to a specific address, the system defaults to returning ROM/RAM values.
 
-Requirements
+## Requirements
 This emulator requires Python 3.12 or higher.
 
 ## How to Run
