@@ -325,7 +325,7 @@ class Processor:
         """Fetch the next opcode from memory (ROM or RAM)."""
         pc = self.registers['PC']
         opcode = self._read_memory(pc)
-        print(f"FETCH {pc:04X} {opcode:02X}")
+        print(f"FETCH @ 0x{pc:04X} = 0x{opcode:02X}")
         self.inc_pc()
         return opcode
 
@@ -842,14 +842,22 @@ program = [
 
 cpu.load_rom(rom)
 cpu.load_ram(program, 0x8000)
-#cpu.load_v3_hex('./example.hex', rom_loaded=False)
+cpu.load_v3_hex('./example.hex', rom_loaded=True)
 
 cpu.memory_dump(address=0x8000, size=256)
+
+single_step = True
 
 # Simulate execution of the program
 cpu.reset()
 while True:
     execute_proc(cpu)
+    if (single_step):
+        print(cpu.reg_dump())
+        cpu.stack_dump()
+        input("Press Enter to step to the next instruction...")
+
+        
 
 # Disassemble the program
 for i, byte in enumerate(program):
