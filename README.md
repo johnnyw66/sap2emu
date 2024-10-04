@@ -4,6 +4,11 @@
 
 This project is a simple microprocessor emulator written in Python. It simulates a custom 8-bit processor architecture with unique features, such as dual register banks and memory-mapped I/O for peripheral devices like sound chips. The emulator provides an environment to execute binary programs on the simulated hardware, complete with ROM, RAM, and programmable I/O devices.
 
+I built a virtual hardware version of this microprocessor using LogiSim - checkout [https://github.com/johnnyw66/SAP2/README.md](https://github.com/johnnyw66/SAP2/blob/main/README.md).
+
+You can use the Python assembler (**assembler.py**) to produce the hex files that can run under this emulator.
+
+
 ### Features
 Two Banks of Registers: The processor includes two banks of four registers each (R0, R1, R2, and R3). The 'EXX' opcode allows switching between these register banks, making it possible to handle two sets of registers efficiently.
 
