@@ -37,14 +37,15 @@ https://www.python.org/downloads/
 Clone this repository to your local machine using Git:
 
 ```
-git clone https://github.com/your-username/microprocessor-emulator.git
-cd microprocessor-emulator
-Install Dependencies
-This emulator does not have any external dependencies outside of Python 3.12 itself. If you plan to extend the project with additional features or libraries, you can set up a virtual environment:
-```
+git clone https://github.com/johnnyw66/sap2emu.git
+cd sap2emu
 
 ```
-python3.12 -m venv venv
+## Install Dependencies
+This emulator does not have any external dependencies outside of Python 3.12 itself. If you plan to extend the project with additional features or libraries, you can set up a virtual environment:
+
+```
+python3 -m venv venv
 source venv/bin/activate  # On Windows, use: venv\Scripts\activate
 ```
 
@@ -52,7 +53,7 @@ source venv/bin/activate  # On Windows, use: venv\Scripts\activate
 To run the emulator with a sample program:
 
 ```
-python3.12 emulator.py path/to/sample_program.bin
+python3 sap2emu.py path/to/sample_program.bin
 Replace path/to/sample_program.bin with the actual path to the binary file you want to load into the emulator. The emulator will load the ROM from this file and start executing instructions.
 ```
 
