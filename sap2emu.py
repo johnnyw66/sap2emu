@@ -722,11 +722,11 @@ def disassemble_opcode(opcode:int) -> str:
 
 
 
-# Example Memory Mapped Hardware - (SoundChip)
+# Example Of Memory Mapped Hardware - (SoundChip)
 
-sound_volume_address = 0x3fff
-sound_freq_address_low = 0x3ffe
-sound_freq_address_high = 0x3ffe
+sound_volume_address = 0x7fff
+sound_freq_address_low = 0x7ffd
+sound_freq_address_high = 0x7ffe
 
 
 memory_mapped_io = Memory(rom_size=0x8000, ram_size=0x8000)
