@@ -196,23 +196,11 @@ class Processor:
 
         # V (Overflow) Flag: Set for signed overflow in addition/subtraction
         if operation in [Operation.ADD, Operation.SUB] and operand is not None:
-            source_sign = (original_value & 0x80) != 0
-            result_sign = (result & 0x80) != 0
-            operand_sign = (operand & 0x80) != 0
-            if (operation == Operation.ADD):
-                self.set_flag(Flag.V, (source_sign == operand_sign) and (result_sign != source_sign))
-            elif (operation == Operation.SUB):
-                print(f"SOURCE MSB: {'NEGATIVE' if source_sign else 'POSTIVE'} OPERAND MSB: {'NEGATIVE' if operand_sign else 'POSITIVE'} RESULT MSB: {'NEGATIVE' if result_sign else 'POSITIVE'}")
-                _1stTEST = (not source_sign and operand_sign and result_sign)
-                _2ndTEST =  (source_sign and not operand_sign and not result_sign)
-                print("_1stTEST", _1stTEST)
-                print("_2ndTEST", _2ndTEST)
-
-                self.set_flag(Flag.V,
-                (not source_sign and operand_sign and result_sign) or (source_sign and not operand_sign and not result_sign)
-                )
-
-
+           
+            vsign = ((result & 0x80) ^ (original_value & 0x80)) & ((result & 0x80) ^ (operand & 0x80))
+            #print(f" {result:04x} A: 0x{original_value:02X} B: 0x{operand:02X}  New Overflow 0x{vsign:02x}")
+            self.set_flag(Flag.V, vsign != 0)
+            
 
         
     def reset(self) -> None:
@@ -766,7 +754,7 @@ program = [
 #0000
 0x40,0xC5,  #MOV R0, 0x0A
 #0x50,0x05,
-0x41,0x35,  #MOV R1, 0x05
+0x41,0x01,  #MOV R1, 0x05
 0xb1,
 0xb1,
 0xb1,
@@ -864,9 +852,9 @@ program = [
 
 0xff]  # Opcodes to be executed
 
-cpu.load_rom(rom)
-cpu.load_ram(program, 0x8000)
-#cpu.load_v3_hex('./example.hex', rom_loaded=True)
+#cpu.load_rom(rom)
+#cpu.load_ram(program, 0x8000)
+cpu.load_v3_hex('./example.hex', rom_loaded=True)
 
 cpu.memory_dump(address=0x8000, size=256)
 
