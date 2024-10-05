@@ -139,6 +139,7 @@ class Operation(Enum):
     SHIFT_LEFT = 4
 
 class Processor:
+    """ SAP2 Emulator - Little Endian Machine """
     def __init__(self, iomapped_memory):
         # Two banks of 4 general-purpose registers: R0, R1, R2, R3
         self.register_banks = [
@@ -351,9 +352,9 @@ class Processor:
        
     def operand_16bit(self) -> (int, int):
         pc = self.registers['PC']
-        high = self._read_memory(pc)
+        low = self._read_memory(pc)
         self.inc_pc()
-        low = self._read_memory((pc+1) & 0xffff)
+        high = self._read_memory((pc+1) & 0xffff)
         self.inc_pc()
         return high, low
 
@@ -565,7 +566,6 @@ def handle_dnjz(proc:Processor, opcode:int, mnemonic:str) -> None:
 
 @opcode_handler(0x64, 0x6B, mnemonic="JP")  # Condition Jump
 def handle_cond_jump(proc:Processor, opcode:int, mnemonic:str) -> None:
-    print(f"Handle conditional JP 0x0{opcode:02X}")
     high_operand, low_operand = proc.operand_16bit()
     if (opcode == 0x64):
         flag_check = Flag.Z
@@ -591,6 +591,8 @@ def handle_cond_jump(proc:Processor, opcode:int, mnemonic:str) -> None:
     elif (opcode == 0x6B):
         flag_check = Flag.O
         cond = False
+
+    print(f"Handle conditional JP (code = 0x0{opcode:02X} - Flag {flag_check}) address {high_operand:02X}{low_operand:02X}")
 
     if (proc.get_flag(flag_check) == cond):
         proc.set_pc(high_operand * 256 + low_operand)
@@ -739,7 +741,7 @@ cpu = Processor(memory_mapped_io)
 # Example program: [MOVI R1,0xa, MOV R0, R1; INC R1; EXX; MOVI R1, 0x2; MOV R0, R1; INC R1; EXX]
 rom = [
     0x40,0x0a,  #MOV R0, 0x0A
-    0x6c, 0x80, 0x00
+    0x6c, 0x00, 0x80
 ]
 
 program = [
@@ -840,8 +842,8 @@ program = [
 
 0xff]  # Opcodes to be executed
 
-cpu.load_rom(rom)
-cpu.load_ram(program, 0x8000)
+#cpu.load_rom(rom)
+#cpu.load_ram(program, 0x8000)
 cpu.load_v3_hex('./example.hex', rom_loaded=True)
 
 cpu.memory_dump(address=0x8000, size=256)
