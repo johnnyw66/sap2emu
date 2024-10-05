@@ -58,9 +58,10 @@ source venv/bin/activate  # On Windows, use: venv\Scripts\activate
 To run the emulator with a sample program:
 
 ```
-python3 sap2emu.py ./sample_program.hex
-Replace path/to/sample_program.bin with the actual path to the binary file you want to load into the emulator. The emulator will load the ROM from this file and start executing instructions.
+python3 sap2emu.py ./example.hex
 ```
+
+Replace **./example.hex** with the actual path to the hex file you want to load into the emulator. The emulator will start executing from address 0x0000 - so you may want to add a simple jump instruction to start at start of RAM (0x8000).
 
 ## Extending the Emulator
 The design of the emulator is modular, so you can easily add support for new hardware components or extend the instruction set. Memory-mapped I/O peripherals can be registered dynamically, allowing you to experiment with different configurations, like adding more complex sound or display systems.
