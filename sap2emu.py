@@ -172,7 +172,10 @@ class Processor:
     def get_flag(self, flag: Flag) -> bool:
         return (self.registers['F'] & flag.value != 0)
 
-    def check_flags(self, result:int, operand=None, operation:Operation=None) -> None:
+    def check_flags(self, original_value:int, result:int, operand=None, operation:Operation=None) -> None:
+
+        print(f"check_flags: Original value: {original_value:02X} Result: {result:04X} Operand: {operand if operand else 'None'} Operation: {operation}")
+
         """Check and set the appropriate flags based on the result."""
         # Z (Zero) Flag: Set if result is zero
         self.set_flag(Flag.Z, result == 0)
@@ -191,11 +194,24 @@ class Processor:
                 carry_out = result < 0     # Borrow occurs if result is negative
             self.set_flag(Flag.C, carry_out)
 
-        if operation == Operation.ADD and operand is not None:
-            # V (Overflow) Flag: Set for signed overflow in addition
+        # V (Overflow) Flag: Set for signed overflow in addition/subtraction
+        if operation in [Operation.ADD, Operation.SUB] and operand is not None:
+            source_sign = (original_value & 0x80) != 0
             result_sign = (result & 0x80) != 0
             operand_sign = (operand & 0x80) != 0
-            self.set_flag(Flag.V, result_sign != operand_sign)
+            if (operation == Operation.ADD):
+                self.set_flag(Flag.V, (source_sign == operand_sign) and (result_sign != source_sign))
+            elif (operation == Operation.SUB):
+                print(f"SOURCE MSB: {'NEGATIVE' if source_sign else 'POSTIVE'} OPERAND MSB: {'NEGATIVE' if operand_sign else 'POSITIVE'} RESULT MSB: {'NEGATIVE' if result_sign else 'POSITIVE'}")
+                _1stTEST = (not source_sign and operand_sign and result_sign)
+                _2ndTEST =  (source_sign and not operand_sign and not result_sign)
+                print("_1stTEST", _1stTEST)
+                print("_2ndTEST", _2ndTEST)
+
+                self.set_flag(Flag.V,
+                (not source_sign and operand_sign and result_sign) or (source_sign and not operand_sign and not result_sign)
+                )
+
 
 
         
@@ -245,7 +261,7 @@ class Processor:
         self.registers['SP'] = _16bitvalue
 
     def set_reg(self, reg:int, _8bitvalue:int) -> None:
-        self.register_banks[self.current_bank][self._map_regnum_to_key(reg)] = _8bitvalue
+        self.register_banks[self.current_bank][self._map_regnum_to_key(reg)] = _8bitvalue & 0xff
 
     def get_reg(self, reg:int) -> int:
         return self.register_banks[self.current_bank][self._map_regnum_to_key(reg)]
@@ -264,7 +280,7 @@ class Processor:
         print("load ram", data, " into address ", start_address)
         """Load data (up to 32KB) into the RAM area."""
         for addr_offset,value in enumerate(data):
-            print(f"Write to {(start_address + addr_offset):04X} {data[addr_offset]:02X}")
+            #print(f"Write to {(start_address + addr_offset):04X} {data[addr_offset]:02X}")
             self.iomemory.raw_write(start_address + addr_offset, data[addr_offset])
 
     def load_v3_hex(self, hex_file, rom_loaded=False):
@@ -512,54 +528,55 @@ def handle_movwi(proc:Processor, opcode:int, mnemonic:str) -> None:
 @opcode_handler(0x58, 0x5b, mnemonic="ANDI")
 @opcode_handler(0x5c, 0x5f, mnemonic="ORI")
 def handle_1reg_18bit(proc:Processor, opcode:int, mnemonic:str) -> None:
-    reg_src = (opcode & 3)
+    reg_dest = (opcode & 3)
     operand = proc.operand_8bit()
-    operation = (opcode>>2) - 16 
-    print(f"{mnemonic} r{reg_src}, 0x{operand:02X} (group {operation})\n")
+    operation = (opcode>>2) - 16
+    org_value = proc.get_reg(reg_dest)
+    print(f"{mnemonic} r{reg_dest}, 0x{operand:02X} (group {operation})\n")
 
 
     if (operation == 0):
         #MOVI rx,_8bit
-        proc.set_reg(reg_src, operand)
+        proc.set_reg(reg_dest, operand)
 
     elif (operation == 1):
         #XORI rx,_8bit
-        result = proc.get_reg(reg_src) ^ operand
-        proc.check_flags(result)
-        proc.set_reg(reg_src, result)
+        result = org_value ^ operand
+        proc.check_flags(org_value, result)
+        proc.set_reg(reg_dest, result)
 
     elif (operation == 4):
-        result = (proc.get_reg(reg_src) + operand)
-        proc.check_flags(result, operation = Operation.ADD)
-        proc.set_reg(reg_src, result & 0xff)
+        result = (org_value + operand)
+        proc.check_flags(org_value, result, operand = operand, operation = Operation.ADD)
+        proc.set_reg(reg_dest, result)
 
     elif (operation == 5):
-        result = proc.get_reg(reg_src) - operand
-        proc.check_flags(result, operation = Operation.SUB)
-        proc.set_reg(reg_src,  result & 0xff)
+        result = org_value - operand
+        proc.check_flags(org_value, result, operand = operand, operation = Operation.SUB)
+        proc.set_reg(reg_dest,  result)
 
     elif (operation == 6):
-        result = (proc.get_reg(reg_src) & operand)
-        proc.check_flags(result, operation = Operation.SUB)
-        proc.set_reg(reg_src, result)
+        result = (org_value & operand)
+        proc.check_flags(org_value, result)
+        proc.set_reg(reg_dest, result)
 
     elif (operation == 7):
-        result = proc.get_reg(reg_src) | operand
-        proc.check_flags(result)
-        proc.set_reg(reg_src, result)
+        result = org_value | operand
+        proc.check_flags(org_value, result)
+        proc.set_reg(reg_dest, result)
     else:
         print("DO NOT KNOW HOW TO HANDLE")
 
 @opcode_handler(0x60, 0x63, mnemonic="DJNZ")
 def handle_dnjz(proc:Processor, opcode:int, mnemonic:str) -> None:
-    reg_src = opcode & 3
+    reg_dest = opcode & 3
     high_operand, low_operand = proc.operand_16bit()
     _16bit_address = high_operand * 256 + low_operand
 
     print(f"DJNZ R{reg_src}, 0x{_16bit_address:04X}")
 
-    result = proc.add_reg_value(reg_src, -1)
-    proc.check_flags(result, operation = Operation.SUB)
+    result = proc.add_reg_value(reg_dest, -1)
+    proc.check_flags(org_value, result, operation = Operation.SUB)
     if (proc.get_flag(Flag.Z) == False):
         proc.set_pc(_16bit_address)
 
@@ -586,10 +603,10 @@ def handle_cond_jump(proc:Processor, opcode:int, mnemonic:str) -> None:
         flag_check = Flag.S
         cond = False
     elif (opcode == 0x6A):
-        flag_check = Flag.O
+        flag_check = Flag.V
         cond = True
     elif (opcode == 0x6B):
-        flag_check = Flag.O
+        flag_check = Flag.V
         cond = False
 
     print(f"Handle conditional JP (code = 0x0{opcode:02X} - Flag {flag_check}) address {high_operand:02X}{low_operand:02X}")
@@ -664,33 +681,35 @@ def handle_2reg_operations(proc:Processor, opcode:int, mnemonic:str) -> None:
     operation = (opcode>>4) - 9
     reg_dest = (opcode>>2) & 3
     reg_src = (opcode & 3)
+    org_value = proc.get_reg(reg_dest)
+
     print(f"Handle operation= {operation} {mnemonic} r{reg_dest}, r{reg_src}")
     if (operation == 0):
         print("MOV OPERATION")
         proc.set_reg(reg_dest,proc.get_reg(reg_src))
     elif (operation == 1):
-        result = proc.get_reg(reg_dest) + proc.get_reg(reg_src)
+        result = (org_value + proc.get_reg(reg_src) & 0xff)
         proc.set_reg(reg_dest, result)
-        proc.check_flags(result, operand=proc.get_reg(reg_src), operation =  Operation.ADD)
+        proc.check_flags(org_value, result, operand=proc.get_reg(reg_src), operation =  Operation.ADD)
     elif (operation == 2):
-        result = proc.get_reg(reg_dest) - proc.get_reg(reg_src)
+        result = (org_value - proc.get_reg(reg_src)) & 0xff
         proc.set_reg(reg_dest, result)
-        proc.check_flags(result, operand=proc.get_reg(reg_src), operation = Operation.SUB)
+        proc.check_flags(org_value, result, operand=proc.get_reg(reg_src), operation = Operation.SUB)
 
     elif (operation == 3):
-        result = proc.get_reg(reg_dest) & proc.get_reg(reg_src)
+        result = org_value & proc.get_reg(reg_src)
         proc.set_reg(reg_dest, result)
-        proc.check_flags(result, operation = Operation.AND)
+        proc.check_flags(org_value, result, operation = Operation.AND)
 
     elif (operation == 4):
-        result = proc.get_reg(reg_dest) | proc.get_reg(reg_src)
+        result = org_value | proc.get_reg(reg_src)
         proc.set_reg(reg_dest, result)
-        proc.check_flags(result, operation = Operation.OR)
+        proc.check_flags(org_value, result, operation = Operation.OR)
 
     elif (operation == 5):
-        result = proc.get_reg(reg_dest) ^ proc.get_reg(reg_src)
+        result = org_value  ^ proc.get_reg(reg_src)
         proc.set_reg(reg_dest, result)
-        proc.check_flags(result, operation = Operation.XOR)
+        proc.check_flags(org_value, result, operation = Operation.XOR)
     else:
         print("INVALID OPCODE GROUP!!!")
 
@@ -740,15 +759,18 @@ cpu = Processor(memory_mapped_io)
 
 # Example program: [MOVI R1,0xa, MOV R0, R1; INC R1; EXX; MOVI R1, 0x2; MOV R0, R1; INC R1; EXX]
 rom = [
-    0x40,0x0a,  #MOV R0, 0x0A
     0x6c, 0x00, 0x80
 ]
 
 program = [
 #0000
-0x40,0x0a,  #MOV R0, 0x0A
-#0002
-0x41,0xca,  #MOV R1, 0xCA
+0x40,0xC5,  #MOV R0, 0x0A
+#0x50,0x05,
+0x41,0x35,  #MOV R1, 0x05
+0xb1,
+0xb1,
+0xb1,
+0xff,
 #0004
 0x42,0xbd,  #MOV R2, 0xBD,
 #0006
@@ -842,9 +864,9 @@ program = [
 
 0xff]  # Opcodes to be executed
 
-#cpu.load_rom(rom)
-#cpu.load_ram(program, 0x8000)
-cpu.load_v3_hex('./example.hex', rom_loaded=True)
+cpu.load_rom(rom)
+cpu.load_ram(program, 0x8000)
+#cpu.load_v3_hex('./example.hex', rom_loaded=True)
 
 cpu.memory_dump(address=0x8000, size=256)
 
