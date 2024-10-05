@@ -58,7 +58,7 @@ source venv/bin/activate  # On Windows, use: venv\Scripts\activate
 To run the emulator with a sample program:
 
 ```
-python3 sap2emu.py path/to/sample_program.bin
+python3 sap2emu.py ./sample_program.hex
 Replace path/to/sample_program.bin with the actual path to the binary file you want to load into the emulator. The emulator will load the ROM from this file and start executing instructions.
 ```
 
