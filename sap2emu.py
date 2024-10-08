@@ -38,6 +38,24 @@ class IODevice:
     def write(self, address, value):
         raise NotImplementedError("Write not implemented")
 
+class SerialPort(IODevice):
+    def __init__(self, input_address, output_address):
+        self.input_address = input_address
+        self.output_address = output_address
+
+    def read(self, address):
+        print("READ SERIAL PORT ")
+        if address == self.input_address:
+            return 65
+        # If the read operation targets an unmapped address, we could raise an error
+        raise ValueError(f"Invalid read address {address} for SerialPort")
+
+    def write(self, address, value):
+        print("WRITE SERIAL PORT ")
+        if address == self.output_address:
+            return 'A'
+        # If the read operation targets an unmapped address, we could raise an error
+        raise ValueError(f"Invalid read address {address} for SerialPort")
 
 class SoundChip(IODevice):
     def __init__(self, sound_volume_address, sound_freq_address_low, sound_freq_address_high):
@@ -231,7 +249,7 @@ class Processor:
         return self.iomemory.read(_16bitaddr)
 
     def store_reg_at_address(self, reg_src, _16bitaddr) -> None:
-        reg_val = get_reg(self, reg)
+        reg_val =self.get_reg(reg_src)
         self._write_memory(_16bitaddr, reg_val)
         
 
@@ -271,7 +289,7 @@ class Processor:
         for addr_offset,value in enumerate(data):
             #logging.info(f"Write to {(start_address + addr_offset):04X} {data[addr_offset]:02X}")
             self.iomemory.raw_write(start_address + addr_offset, data[addr_offset])
-
+    
     def load_v3_hex(self, hex_file, rom_loaded=False):
         logging.info(f"Load V3 Hex file: {hex_file}")
         # Open and read the HEX file
@@ -733,21 +751,32 @@ def disassemble_opcode(opcode:int) -> str:
 
 
 
-# Example Of Memory Mapped Hardware - (SoundChip)
+
 
 logging.basicConfig(filename=None, format='%(name)s %(levelname)s: %(asctime)s: %(message)s', level=logging.INFO)
+
+
+# Examples Of Memory Mapped Hardware - SoundChip and Serial Port
 
 sound_volume_address = 0x7fff
 sound_freq_address_low = 0x7ffd
 sound_freq_address_high = 0x7ffe
 
+serial_out_address = 0x6000
+serial_in_address = 0x6001
+
 
 memory_mapped_io = Memory(rom_size=0x8000, ram_size=0x8000)
+
 sound_chip = SoundChip(sound_volume_address, sound_freq_address_low, sound_freq_address_high)
 memory_mapped_io.map_io_device(sound_volume_address, sound_chip)
 memory_mapped_io.map_io_device(sound_freq_address_low, sound_chip)
 memory_mapped_io.map_io_device(sound_freq_address_high, sound_chip)
 
+
+serial_chip = SerialPort(serial_in_address, serial_out_address)
+memory_mapped_io.map_io_device(serial_out_address, serial_chip)
+memory_mapped_io.map_io_device(serial_in_address, serial_chip)
 
 cpu = Processor(memory_mapped_io)
 
