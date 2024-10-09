@@ -1,3 +1,55 @@
+
+""" SAP2 Emulator - See https://github.com/johnnyw66/SAP2 """
+
+from enum import Enum
+import logging
+
+
+
+# Non blocking Keyboard - Thank you Artiom Peysakhovsky - https://gist.github.com/Artiomio
+try:
+    import msvcrt
+
+    def key_pressed():
+        return msvcrt.kbhit()
+
+    def read_key():
+        key = msvcrt.getch()
+
+        try:
+            result = str(key, encoding="utf8")
+        except:
+            result = key
+        
+        return result
+
+except:
+    print("Non Windows")
+    try:
+        import sys
+        import select
+        import tty
+        import termios
+        import atexit
+
+        def key_pressed():
+            return select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], [])
+
+        def read_key():
+            return sys.stdin.read(1)
+
+        def restore_settings():
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+
+
+        atexit.register(restore_settings)
+        old_settings = termios.tcgetattr(sys.stdin)
+
+        tty.setcbreak(sys.stdin.fileno())
+    except:
+        print("Can't deal with your keyboard!")
+        
+
 # MIT License
 # 
 # Copyright (c) 2024 Johnny Wilson
@@ -23,13 +75,6 @@
 # Author: Johnny Wilson
 # Location: Brighton, Sussex
 
-
-""" SAP2 Emulator - See https://github.com/johnnyw66/SAP2 """
-
-from enum import Enum
-import logging
-
-
 class IODevice:
     """Abstract base class for I/O devices."""
     def read(self, address):
@@ -46,7 +91,8 @@ class SerialPort(IODevice):
     def read(self, address):
         print("READ SERIAL PORT ")
         if address == self.input_address:
-            return 65
+            if not key_pressed():
+                return ord(read_key())
         # If the read operation targets an unmapped address, we could raise an error
         raise ValueError(f"Invalid read address {address} for SerialPort")
 
@@ -795,7 +841,13 @@ while True:
     if (single_step):
         print(cpu.reg_dump())
         cpu.stack_dump()
-        input("Press Enter to step to the next instruction...")
+        print("Press 'S' to step to the next instruction...")
+        skey = False
+        while not skey:
+            k = read_key()
+            if (k == 's' or k == 'S'):
+                skey = True
+
 
         
 
