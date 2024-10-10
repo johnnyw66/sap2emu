@@ -83,6 +83,26 @@ class IODevice:
     def write(self, address, value):
         raise NotImplementedError("Write not implemented")
 
+
+class GPIO(IODevice):
+    # 8-bit GPIO
+    def __init__(self, io_address, io_direction_address):
+        self.io_address = io_address
+        self.io_direction_address = io_direction_address
+        self.io_direction_mask = 0
+
+    def read(self, address):
+        if (address == self.io_direction_mask):
+            return self.io_direction_mask
+        #raise ValueError(f"Invalid read address {address} for GPIO")
+            
+    def write(self, address, value):
+        if (address == self.io_direction_address):
+            self.io_direction_mask = value
+            return self.io_direction_mask
+
+        #raise ValueError(f"Invalid read address {address} for GPIO")
+
 class SerialPort(IODevice):
     def __init__(self, input_address, output_address):
         self.input_address = input_address
@@ -823,6 +843,10 @@ memory_mapped_io.map_io_device(sound_freq_address_high, sound_chip)
 serial_chip = SerialPort(serial_in_address, serial_out_address)
 memory_mapped_io.map_io_device(serial_out_address, serial_chip)
 memory_mapped_io.map_io_device(serial_in_address, serial_chip)
+
+gpio = GPIO(0,1)
+#memory_mapped_io.map_io_device(0, gpio)
+#memory_mapped_io.map_io_device(1, gpio)
 
 cpu = Processor(memory_mapped_io)
 
