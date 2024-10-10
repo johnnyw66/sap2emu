@@ -86,8 +86,8 @@ class IODevice:
 
 class GPIO(IODevice):
     # 8-bit GPIO
-    def __init__(self, io_address, io_direction_address):
-        self.io_address = io_address
+    def __init__(self, port_address, io_direction_address):
+        self.port_address = port_address
         self.io_direction_address = io_direction_address
         self.io_direction_mask = 0
 
@@ -109,16 +109,18 @@ class SerialPort(IODevice):
         self.output_address = output_address
 
     def read(self, address):
-        print("READ SERIAL PORT ")
+        #print("READ SERIAL PORT ")
         if address == self.input_address:
-            if not key_pressed():
+            if key_pressed():
                 return ord(read_key())
+            return 0
         # If the read operation targets an unmapped address, we could raise an error
         raise ValueError(f"Invalid read address {address} for SerialPort")
 
     def write(self, address, value):
-        print("WRITE SERIAL PORT ")
+        #print(f"WRITE SERIAL PORT {address:04X} {self.output_address:04X} {value:02X}")
         if address == self.output_address:
+            print(chr(value), end="")
             return 'A'
         # If the read operation targets an unmapped address, we could raise an error
         raise ValueError(f"Invalid read address {address} for SerialPort")
@@ -222,6 +224,10 @@ class Operation(Enum):
     LOGICAL = 2
     SHIFT_RIGHT = 3
     SHIFT_LEFT = 4
+    AND = 5
+    OR = 6
+    XOR = 7
+
 
 class Processor:
     """ SAP2 Emulator - Little Endian Machine """
@@ -594,6 +600,9 @@ def handle_movwi(proc:Processor, opcode:int, mnemonic:str) -> None:
     proc.set_reg(reg_src, high_operand)
     proc.set_reg(reg_src + 1, low_operand)
 
+@opcode_handler(0x4a,0x4f, mnemonic="MOVINDIRECT")
+def handle_indirect(proc:Processor, opcode:int, mnemonic:str) -> None:
+    raise NotImplementedError("Not implemented MOVINDIRECT")
 
 @opcode_handler(0x40, 0x43, mnemonic="MOVI")
 @opcode_handler(0x44, 0x47, mnemonic="XORI")
@@ -831,6 +840,9 @@ sound_freq_address_high = 0x7ffe
 serial_out_address = 0x6000
 serial_in_address = 0x6001
 
+serial_port_address = 0x5000
+serial_port_mask_address = 0x5001
+
 
 memory_mapped_io = Memory(rom_size=0x8000, ram_size=0x8000)
 
@@ -844,7 +856,7 @@ serial_chip = SerialPort(serial_in_address, serial_out_address)
 memory_mapped_io.map_io_device(serial_out_address, serial_chip)
 memory_mapped_io.map_io_device(serial_in_address, serial_chip)
 
-gpio = GPIO(0,1)
+gpio = GPIO(serial_port_address,serial_port_mask_address)
 #memory_mapped_io.map_io_device(0, gpio)
 #memory_mapped_io.map_io_device(1, gpio)
 
