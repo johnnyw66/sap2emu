@@ -345,6 +345,10 @@ class Processor:
     def get_reg(self, reg:int) -> int:
         return self.register_banks[self.current_bank][self._map_regnum_to_key(reg)]
 
+    def get_16bit_from_reg(self, reg:int):
+        low =  self.register_banks[self.current_bank][self._map_regnum_to_key(reg)]
+        high = self.register_banks[self.current_bank][self._map_regnum_to_key(reg + 1)]
+        return high * 256 + low
 
     def load_rom(self, data) -> None:
         logging.info(f"load_rom {data}")
@@ -602,7 +606,24 @@ def handle_movwi(proc:Processor, opcode:int, mnemonic:str) -> None:
 
 @opcode_handler(0x4a,0x4f, mnemonic="MOVINDIRECT")
 def handle_indirect(proc:Processor, opcode:int, mnemonic:str) -> None:
-    raise NotImplementedError("Not implemented MOVINDIRECT")
+    print(f"Base Reg Pair {opcode & 3}")
+    _reg = (opcode >> 2) & 3
+    _16bit_address = proc.get_16bit_from_reg(opcode & 1)
+    #proc.set_reg(self, reg:int, _8bitvalue:int)
+    #proc.store_reg_at_address(self, reg_src, _16bitaddr)
+    #proc.load_reg_from_address(self, reg_src:int, _16bitaddr:int) # load into reg contents at address
+
+
+    if (opcode == 0x4a):
+        pass
+    elif (opcode == 0x4b):
+        pass
+    elif (opcode == 0x4e):
+        pass
+    elif (opcode == 0x4f):
+        pass
+    else:
+        raise NotImplementedError(f"Not implemented MOVINDIRECT opcode: {opcode}")
 
 @opcode_handler(0x40, 0x43, mnemonic="MOVI")
 @opcode_handler(0x44, 0x47, mnemonic="XORI")
@@ -888,7 +909,7 @@ while True:
         
 
 # Disassemble the program
-for i, byte in enumerate(program):
-    print(f"{i:02X}: {disassemble_opcode(byte)}")
+#for i, byte in enumerate(program):
+#    print(f"{i:02X}: {disassemble_opcode(byte)}")
 
 
