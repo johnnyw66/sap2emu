@@ -327,8 +327,9 @@ class Processor:
 
 
     def load_reg_from_address(self, reg_src:int, _16bitaddr:int) -> None:
-        reg_val = self._read_memory(_16bitaddr)
-        self.set_reg(reg_src, reg_val)
+        value = self._read_memory(_16bitaddr)
+        print(f"RE~TRIEVED ... {value:02X}")
+        self.set_reg(reg_src, value)
 
     def get_pc(self) -> int:
         return self.registers['PC']
@@ -346,8 +347,8 @@ class Processor:
         return self.register_banks[self.current_bank][self._map_regnum_to_key(reg)]
 
     def get_16bit_from_reg(self, reg:int):
-        low =  self.register_banks[self.current_bank][self._map_regnum_to_key(reg)]
-        high = self.register_banks[self.current_bank][self._map_regnum_to_key(reg + 1)]
+        high =  self.register_banks[self.current_bank][self._map_regnum_to_key(reg)]
+        low = self.register_banks[self.current_bank][self._map_regnum_to_key(reg + 1)]
         return high * 256 + low
 
     def load_rom(self, data) -> None:
@@ -606,22 +607,26 @@ def handle_movwi(proc:Processor, opcode:int, mnemonic:str) -> None:
 
 @opcode_handler(0x4a,0x4f, mnemonic="MOVINDIRECT")
 def handle_indirect(proc:Processor, opcode:int, mnemonic:str) -> None:
-    print(f"Base Reg Pair {opcode & 3}")
-    _reg = (opcode >> 2) & 3
-    _16bit_address = proc.get_16bit_from_reg(opcode & 1)
-    #proc.set_reg(self, reg:int, _8bitvalue:int)
-    #proc.store_reg_at_address(self, reg_src, _16bitaddr)
-    #proc.load_reg_from_address(self, reg_src:int, _16bitaddr:int) # load into reg contents at address
-
+    _16bit_address = proc.get_16bit_from_reg(0)
+    print(f"handle_indirect: {_16bit_address:04X}")
 
     if (opcode == 0x4a):
-        pass
+    # ST R2,[R0R1]
+        _reg = 2
+        proc.store_reg_at_address(_reg, _16bit_address)
     elif (opcode == 0x4b):
-        pass
+    # ST R3,[R0R1]
+        _reg = 3
+        proc.store_reg_at_address(_reg, _16bit_address)
     elif (opcode == 0x4e):
-        pass
+    # LD R2,[R0R1]
+        print(" OPCODE LD R2, [R0R1]")
+        _reg = 2
+        proc.load_reg_from_address(_reg, _16bit_address) # load into reg contents at address
     elif (opcode == 0x4f):
-        pass
+    # LD R3,[R0R1]
+        _reg = 3
+        proc.load_reg_from_address(_reg, _16bit_address) # load into reg contents at address
     else:
         raise NotImplementedError(f"Not implemented MOVINDIRECT opcode: {opcode}")
 
@@ -773,7 +778,7 @@ def handle_1reg_operation(proc:Processor, opcode:int, mnemonic:str) -> None:
     elif (opcode > 0x87):
         proc.add_reg_value(reg_src, 1)
     else:
-        print(f"OUT R{reg_src} = 0x{proc.get_reg(reg_src):02X}")
+        print(f"OUT R{reg_src} = 0x{proc.get_reg(reg_src):02X} CHR: {chr(proc.get_reg(reg_src))}")
     
 
 @opcode_handler(0x90, 0x9f, mnemonic="MOV")
