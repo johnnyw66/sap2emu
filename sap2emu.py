@@ -4,11 +4,14 @@
 from enum import Enum
 import logging
 
+logging.basicConfig(filename=None, format='%(name)s %(levelname)s: %(asctime)s: %(message)s', level=logging.INFO)
 
 
 # Non blocking Keyboard - Thank you Artiom Peysakhovsky - https://gist.github.com/Artiomio
 try:
     import msvcrt
+
+    logging.info("Windows OS")
 
     def key_pressed():
         return msvcrt.kbhit()
@@ -24,7 +27,7 @@ try:
         return result
 
 except:
-    print("Non Windows")
+    logging.info("Linux/Mac OS X")
     try:
         import sys
         import select
@@ -328,7 +331,7 @@ class Processor:
 
     def load_reg_from_address(self, reg_src:int, _16bitaddr:int) -> None:
         value = self._read_memory(_16bitaddr)
-        print(f"RE~TRIEVED ... {value:02X}")
+        logging.info(f"load_reg_from_address: ... {value:02X}")
         self.set_reg(reg_src, value)
 
     def get_pc(self) -> int:
@@ -608,7 +611,7 @@ def handle_movwi(proc:Processor, opcode:int, mnemonic:str) -> None:
 @opcode_handler(0x4a,0x4f, mnemonic="MOVINDIRECT")
 def handle_indirect(proc:Processor, opcode:int, mnemonic:str) -> None:
     _16bit_address = proc.get_16bit_from_reg(0)
-    print(f"handle_indirect: {_16bit_address:04X}")
+    logging.info(f"handle_indirect: {_16bit_address:04X}")
 
     if (opcode == 0x4a):
     # ST R2,[R0R1]
@@ -620,7 +623,6 @@ def handle_indirect(proc:Processor, opcode:int, mnemonic:str) -> None:
         proc.store_reg_at_address(_reg, _16bit_address)
     elif (opcode == 0x4e):
     # LD R2,[R0R1]
-        print(" OPCODE LD R2, [R0R1]")
         _reg = 2
         proc.load_reg_from_address(_reg, _16bit_address) # load into reg contents at address
     elif (opcode == 0x4f):
@@ -778,8 +780,8 @@ def handle_1reg_operation(proc:Processor, opcode:int, mnemonic:str) -> None:
     elif (opcode > 0x87):
         proc.add_reg_value(reg_src, 1)
     else:
-        print(f"OUT R{reg_src} = 0x{proc.get_reg(reg_src):02X} CHR: {chr(proc.get_reg(reg_src))}")
-    
+        logging.info(f"OUT R{reg_src} = 0x{proc.get_reg(reg_src):02X} CHR: ")
+        print(f"{chr(proc.get_reg(reg_src))}",end="")    
 
 @opcode_handler(0x90, 0x9f, mnemonic="MOV")
 @opcode_handler(0xa0, 0xaf, mnemonic="ADD")
@@ -854,7 +856,6 @@ def disassemble_opcode(opcode:int) -> str:
 
 
 
-logging.basicConfig(filename=None, format='%(name)s %(levelname)s: %(asctime)s: %(message)s', level=logging.INFO)
 
 
 # Examples Of Memory Mapped Hardware - SoundChip and Serial Port
@@ -891,10 +892,11 @@ cpu = Processor(memory_mapped_io)
 #cpu.load_rom(rom)
 #cpu.load_ram(program, 0x8000)
 cpu.load_v3_hex('./example.hex', rom_loaded=True)
+single_step = False
 
-cpu.memory_dump(address=0x8000, size=256)
+if (single_step):
+    cpu.memory_dump(address=0x8000, size=256)
 
-single_step = True
 
 # Simulate execution of the program
 cpu.reset()
