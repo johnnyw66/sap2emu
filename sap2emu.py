@@ -781,7 +781,7 @@ def handle_1reg_operation(proc:Processor, opcode:int, mnemonic:str) -> None:
         proc.add_reg_value(reg_src, 1)
     else:
         logging.info(f"OUT R{reg_src} = 0x{proc.get_reg(reg_src):02X} CHR: ")
-        print(f"{chr(proc.get_reg(reg_src))}",end="")    
+        print(f"{chr(proc.get_reg(reg_src))}",end="")
 
 @opcode_handler(0x90, 0x9f, mnemonic="MOV")
 @opcode_handler(0xa0, 0xaf, mnemonic="ADD")
