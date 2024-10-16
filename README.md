@@ -62,6 +62,57 @@ python3 sap2emu.py ./example.hex
 ```
 
 Replace **./example.hex** with the actual path to the hex file you want to load into the emulator. The emulator will start executing from address 0x0000 - so you may want to add a simple jump instruction to start at start of RAM (0x8000).
+## Example Code
+
+```
+; Print a string
+.org 0x8000
+
+movwi r0,text
+:loop
+ld r2,(r0)
+and r2,r2
+jpz finish
+out r2
+addi r1, 1
+jpnc loop
+addi r0, 1
+jmp loop
+
+:finish
+hlt
+
+:text
+.dt '***Hello World!****'
+.end
+
+```
+
+```
+.org 0x8000
+; Give an integer estimate of the squareroot of 197.
+movi r0,197
+movi r1,1
+movi r2,1
+
+:loop
+; Display the current estimate of sqr(197)
+out r2
+sub r0,r1
+jpv foundit
+jpz foundit
+
+:continue
+addi r1,2
+inc r2
+jmp loop
+
+:foundit
+hlt
+
+.end
+```
+
 
 ## Extending the Emulator
 The design of the emulator is modular, so you can easily add support for new hardware components or extend the instruction set. Memory-mapped I/O peripherals can be registered dynamically, allowing you to experiment with different configurations, like adding more complex sound or display systems.
