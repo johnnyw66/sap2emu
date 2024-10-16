@@ -6,7 +6,7 @@ This project is a simple microprocessor emulator written in Python. It simulates
 
 I built a virtual hardware version of this microprocessor using LogiSim - checkout [https://github.com/johnnyw66/SAP2/README.md](https://github.com/johnnyw66/SAP2/blob/main/README.md).
 
-You can use the Python assembler (**assembler.py**) to produce the hex files that can run under this emulator.
+You can use the Python assembler (**assembler.py**) found on this repository to produce the hex files that can run under this emulator.
 
 
 ### Features
@@ -37,6 +37,27 @@ This emulator requires Python 3.12 or higher.
 Install Python 3.12
 Make sure you have Python 3.12 installed. You can download it from the official Python website:
 https://www.python.org/downloads/
+From a command line terminal simple run the command -
+
+**python3 sap2emu.py -f example.hex**
+
+using the **-f** option to indicate the assembled file you wish to run.
+
+**sap2emu.py** has the following command line options -
+
+```
+johnny@JohnsMacBookPro sap2emu % python3 sap2emu.py --help
+usage: sap2emu.py [-h] [-l] [-s] [-f FILE]
+
+SAP2 Emulator
+
+options:
+  -h, --help            show this help message and exit
+  -l, --logging         Logging ON (default: False)
+  -s, --single-step     Single Step (default: False)
+  -f FILE, --file FILE  File (default: example.hex)
+johnny@JohnsMacBookPro sap2emu % 
+```
 
 ## Clone the Repository
 Clone this repository to your local machine using Git:
