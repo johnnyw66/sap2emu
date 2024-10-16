@@ -3,8 +3,22 @@
 
 from enum import Enum
 import logging
+import argparse
 
-logging.basicConfig(filename=None, format='%(name)s %(levelname)s: %(asctime)s: %(message)s', level=logging.INFO)
+parser = argparse.ArgumentParser(description="SAP2 Emulator",
+                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+parser.add_argument("-l", "--logging", action='store_true',default=False, help="Logging ON")
+parser.add_argument("-s", "--single-step",  action='store_true', default=False, help="Single Step")
+parser.add_argument("-f", "--file", default='example.hex', help="File")
+
+args = parser.parse_args()
+arg_config = vars(args)
+single_step = arg_config['single_step']
+file_name = arg_config['file']
+
+if (arg_config['logging']):
+    logging.basicConfig(filename=None, format='%(name)s %(levelname)s: %(asctime)s: %(message)s', level=logging.INFO)
 
 
 # Non blocking Keyboard - Thank you Artiom Peysakhovsky - https://gist.github.com/Artiomio
@@ -891,8 +905,7 @@ cpu = Processor(memory_mapped_io)
 
 #cpu.load_rom(rom)
 #cpu.load_ram(program, 0x8000)
-cpu.load_v3_hex('./example.hex', rom_loaded=True)
-single_step = False
+cpu.load_v3_hex(file_name, rom_loaded=True)
 
 if (single_step):
     cpu.memory_dump(address=0x8000, size=256)
