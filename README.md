@@ -4,7 +4,7 @@
 
 This project is a simple microprocessor emulator written in Python. It simulates a custom 8-bit processor architecture with unique features, such as dual register banks and memory-mapped I/O for peripheral devices like sound chips. The emulator provides an environment to execute binary programs on the simulated hardware, complete with ROM, RAM, and programmable I/O devices.
 
-I built a virtual hardware version of this microprocessor using LogiSim - checkout [https://github.com/johnnyw66/SAP2/README.md](https://github.com/johnnyw66/SAP2/blob/main/README.md).
+I built a virtual hardware version of this microprocessor using **LogiSim** - checkout the repo of my project [https://github.com/johnnyw66/SAP2/README.md](https://github.com/johnnyw66/SAP2/blob/main/README.md).
 
 You can use the Python assembler (**assembler.py**) found on this repository to produce the hex files that can run under this emulator.
 
@@ -37,6 +37,7 @@ This emulator requires Python 3.12 or higher.
 Install Python 3.12
 Make sure you have Python 3.12 installed. You can download it from the official Python website:
 https://www.python.org/downloads/
+
 From a command line terminal simple run the command -
 
 **python3 sap2emu.py -f example.hex**
