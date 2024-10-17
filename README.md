@@ -80,7 +80,7 @@ source venv/bin/activate  # On Windows, use: venv\Scripts\activate
 To run the emulator with a sample program:
 
 ```
-python3 sap2emu.py ./example.hex
+python3 sap2emu.py -f ./example.hex
 ```
 
 Replace **./example.hex** with the actual path to the hex file you want to load into the emulator. The emulator will start executing from address 0x0000 - so you may want to add a simple jump instruction to start at start of RAM (0x8000).
