@@ -386,6 +386,9 @@ class Processor:
     
     def load_v3_hex(self, hex_file, rom_loaded=False):
         logging.info(f"Load V3 Hex file: {hex_file}")
+        bytes_read = 0
+        valid_lines = 0
+
         # Open and read the HEX file
         with open(hex_file, 'r', encoding='utf-8-sig') as f:
             for line in f:
@@ -395,18 +398,22 @@ class Processor:
                 # Ignore empty lines
                 if not line:
                     continue
-                logging.info(f"<{line}>")
+
                 # Split the line into address and data parts
                 parts = line.split(':')
                 logging.info(parts)
-                if len(parts) != 2:
-                    raise ValueError(f"Invalid line format: {line}")
+
+                # Ignore any lines which do not follow the format 'address: data'
+                if len(parts) != 2:  
+                    continue
                 
                 # Parse the address (first part)
                 address = int(parts[0], 16)
 
                 # Parse the hex data (second part), splitting by spaces
                 data_bytes = parts[1].strip().split()
+                valid_lines += 1
+                bytes_read += len(data_bytes)
 
                 # Write each byte to the corresponding memory address
                 for i, byte_str in enumerate(data_bytes):
@@ -415,7 +422,7 @@ class Processor:
 
         self.rom_loaded = rom_loaded
 
-        logging.info("HEX file processing complete.")
+        logging.info(f"Hex file processing complete. Lines {valid_lines}. Bytes Read {bytes_read}.")
 
 
     def add_reg_value(self, reg:int, _8bitvalue:int) -> int:
