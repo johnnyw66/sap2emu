@@ -1,12 +1,14 @@
-.org 0x8400
+; python3 assembler.py indirect.asm -r
+.org 0
+jmp start
 
+.org 0x8400
+:start
 movwi r0,text
 :loop
-; ld r2, [r0r1]
-.db 0x4e 
+ld r2,(r0)
 and r2,r2
 jpz finish
-; Display the current estimate of sqr(197)
 out r2
 addi r1, 1
 jpnc loop
@@ -17,6 +19,6 @@ jmp loop
 hlt
 
 :text
-.dt 'Hello WorldA'
+.dt 'Hello World'
 
 .end
