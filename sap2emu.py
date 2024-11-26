@@ -466,7 +466,7 @@ class Processor:
         low = self._read_memory(self.registers['SP'])
         self.inc_sp()
         high = self._read_memory(self.registers['SP'])
-        return high, low
+        return low, high
 
     def push_stack_16bit(self, low:int, high:int) -> None:
        self._write_memory(self.registers['SP'], high)
@@ -605,7 +605,7 @@ def handle_push_reg(proc:Processor, opcode:int, mnemonic:str) -> None:
 
 @opcode_handler(0x22,0x23, mnemonic="POP")
 def handle_pop_reg(proc:Processor, opcode:int, mnemonic:str) -> None:
-    loging.info(f"POP {opcode}")
+    logging.info(f"POP {opcode}")
     if (opcode == 0x22):
         r0, r1 = proc.pop_stack_16bit()
         proc.set_reg(0, r0),
@@ -701,7 +701,7 @@ def handle_1reg_18bit(proc:Processor, opcode:int, mnemonic:str) -> None:
 
 @opcode_handler(0x60, 0x63, mnemonic="DJNZ")
 def handle_dnjz(proc:Processor, opcode:int, mnemonic:str) -> None:
-    reg_ = opcode & 3
+    reg_dest = opcode & 3
     high_operand, low_operand = proc.operand_16bit()
     _16bit_address = high_operand * 256 + low_operand
     org_value = proc.get_reg(reg_dest)
@@ -769,7 +769,7 @@ def handle_call(proc:Processor, opcode:int, mnemonic:str) -> None:
     
 @opcode_handler(0x6f, mnemonic="RET")  # Condition Jump
 def handle_ret(proc:Processor, opcode:int, mnemonic:str) -> None:
-    high, low  = proc.pop_stack_16bit()
+    low, high  = proc.pop_stack_16bit()
     logging.info(f"Handle RET to return address 0x{high:02X}{low:02X}")
     proc.set_pc(high * 256 + low)
 
@@ -780,6 +780,8 @@ def handle_ret(proc:Processor, opcode:int, mnemonic:str) -> None:
 def handle_shift(proc:Processor, opcode:int, mnemonic:str) -> None:
     shift_left = (opcode >= 0x84)
     reg_src = (opcode & 3)
+    #print(f"SHIFT{'LEFT' if shift_left else 'RIGHT'}",reg_src)
+
     carry = 1 if proc.get_flag(Flag.C) else 0
     if (shift_left):
         new_carry = proc.get_reg(reg_src) & 1
@@ -787,8 +789,8 @@ def handle_shift(proc:Processor, opcode:int, mnemonic:str) -> None:
     else:
         new_carry = proc.get_reg(reg_src) & 128
         result = (proc.get_reg(reg_src)>>1) | (carry<<8)
-
-    proc.set_reg(result)
+    #print("RESULT",result)
+    proc.set_reg(reg_src,result)
     proc.set_flag(Flag.C, carry)
 
 @opcode_handler(0x10, 0x13, mnemonic="OUT")
@@ -881,9 +883,9 @@ def disassemble_opcode(opcode:int) -> str:
 
 # Examples Of Memory Mapped Hardware - SoundChip and Serial Port
 
-sound_volume_address = 0x7fff
-sound_freq_address_low = 0x7ffd
-sound_freq_address_high = 0x7ffe
+sound_volume_address = 0x4fff
+sound_freq_address_low = 0x4ffd
+sound_freq_address_high = 0x4ffe
 
 serial_out_address = 0x6000
 serial_in_address = 0x6001
@@ -915,7 +917,7 @@ cpu = Processor(memory_mapped_io)
 cpu.load_v3_hex(file_name, rom_loaded=True)
 
 if (single_step):
-    cpu.memory_dump(address=0x8000, size=256)
+    cpu.memory_dump(address=0x0000, size=256)
 
 
 # Simulate execution of the program
