@@ -783,15 +783,15 @@ def handle_shift(proc:Processor, opcode:int, mnemonic:str) -> None:
     #print(f"SHIFT{'LEFT' if shift_left else 'RIGHT'}",reg_src)
 
     carry = 1 if proc.get_flag(Flag.C) else 0
+
     if (shift_left):
-        new_carry = proc.get_reg(reg_src) & 1
+        new_carry = proc.get_reg(reg_src) & 128
         result = ((proc.get_reg(reg_src)<<1) & 0xff)  | carry
     else:
-        new_carry = proc.get_reg(reg_src) & 128
-        result = (proc.get_reg(reg_src)>>1) | (carry<<8)
-    #print("RESULT",result)
+        new_carry = proc.get_reg(reg_src) & 1
+        result = (proc.get_reg(reg_src)>>1) | (carry<<7)
     proc.set_reg(reg_src,result)
-    proc.set_flag(Flag.C, carry)
+    proc.set_flag(Flag.C, new_carry)
 
 @opcode_handler(0x10, 0x13, mnemonic="OUT")
 @opcode_handler(0x88, 0x8b, mnemonic="INC")
