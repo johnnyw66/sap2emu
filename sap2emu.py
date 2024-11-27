@@ -797,11 +797,24 @@ def handle_shift(proc:Processor, opcode:int, mnemonic:str) -> None:
 @opcode_handler(0x88, 0x8b, mnemonic="INC")
 @opcode_handler(0x8c, 0x8f, mnemonic="DEC")
 def handle_1reg_operation(proc:Processor, opcode:int, mnemonic:str) -> None:
+
     reg_src = (opcode & 3)
+    org_value = proc.get_reg(reg_src)
+
     if (opcode > 0x8b):
-        proc.add_reg_value(reg_src, -1)
+        #proc.add_reg_value(reg_src, -1)
+        operand = -1
+        result = (org_value - 1)
+        proc.check_flags(org_value, result, operand = operand, operation = Operation.ADD)
+        proc.set_reg(reg_src, result)
+
     elif (opcode > 0x87):
-        proc.add_reg_value(reg_src, 1)
+        #proc.add_reg_value(reg_src, 1)
+        operand = 1
+        result = (org_value + 1)
+        proc.check_flags(org_value, result, operand = operand, operation = Operation.ADD)
+        proc.set_reg(reg_src, result)
+
     else:
         logging.info(f"OUT R{reg_src} = 0x{proc.get_reg(reg_src):02X} CHR: ")
         print(f"{chr(proc.get_reg(reg_src))}",end="")
