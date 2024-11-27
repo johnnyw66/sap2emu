@@ -623,7 +623,7 @@ def handle_exx(proc:Processor, opcode:int, mnemonic:str) -> None:
 @opcode_handler(0x28, mnemonic="MOVWI R0")
 @opcode_handler(0x2a, mnemonic="MOVWI R2")
 def handle_movwi(proc:Processor, opcode:int, mnemonic:str) -> None:
-    reg_src = ((opcode>>1) & 3)
+    reg_src = (opcode & 2)
     high_operand, low_operand = proc.operand_16bit()
     logging.info(f"**************handle_movwi****************** {mnemonic}, {hex(high_operand * 256 + low_operand)}")
     proc.set_reg(reg_src, high_operand)
@@ -863,6 +863,7 @@ def handle_2reg_operations(proc:Processor, opcode:int, mnemonic:str) -> None:
 @opcode_handler(0xff, mnemonic="HLT")
 def handle_halt(proc:Processor, opcode:int, mnemonic:str) -> None:
     #logging.info(proc.reg_dump())
+    print(cpu.reg_dump())
     while True:
         pass
 
