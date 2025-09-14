@@ -9,6 +9,44 @@ I built a virtual hardware version of this microprocessor using **LogiSim** - ch
 You can use the Python assembler (**assembler.py**) found on this repository to produce the hex files that can run under this emulator.
 [See assembler.py in SAP2](https://github.com/johnnyw66/SAP2/blob/main/assembler.py)
 
+## A reminder of how to produce HEX files which can be run on this emulator.
+
+Copy the following assembler source and place in a file called sqrt.asm using a standard text editor.
+Save the file as **sqrt.asm**
+
+```
+.org 0
+jmp start          ; A very basic ROM - which just jumps to the first byte of USER Ram
+
+.org 0x8000
+:start
+movi r0,197
+movi r1,1
+movi r2,1
+
+:loop
+; Display the current estimate of sqr(197)
+out r2
+sub r0,r1
+jpv foundit
+jpz foundit
+
+:continue
+addi r1,2
+inc r2
+jmp loop
+
+:foundit
+hlt
+
+.end
+
+```
+
+To produce sqrt.hex we run the assembler.py script using the from the command line
+
+**python3 assembler.py sqrt.asm -r -s**
+
 
 ### Features
 Two Banks of Registers: The processor includes two banks of four registers each (R0, R1, R2, and R3). The 'EXX' opcode allows switching between these register banks, making it possible to handle two sets of registers efficiently.
