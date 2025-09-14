@@ -45,7 +45,9 @@ hlt
 
 To produce sqrt.hex we run the assembler.py script using the from the command line
 
-**python3 assembler.py sqrt.asm -r -s**
+```
+python3 assembler.py sqrt.asm -r -s 
+```
 
 
 ### Features
