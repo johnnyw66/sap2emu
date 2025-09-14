@@ -7,6 +7,7 @@ This project is a simple microprocessor emulator written in Python. It simulates
 I built a virtual hardware version of this microprocessor using **LogiSim** - checkout the repo of my project [https://github.com/johnnyw66/SAP2/README.md](https://github.com/johnnyw66/SAP2/blob/main/README.md).
 
 You can use the Python assembler (**assembler.py**) found on this repository to produce the hex files that can run under this emulator.
+[See assembler.py in SAP2](https://github.com/johnnyw66/SAP2/blob/main/assembler.py)
 
 
 ### Features
